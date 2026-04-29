@@ -958,9 +958,9 @@
     }
 
     const PART_THEME = {
-      part1: { from: '#6b561c', to: '#9c8540', numeral: 'I' },
-      part2: { from: '#264540', to: '#46716a', numeral: 'II' },
-      part3: { from: '#523840', to: '#825461', numeral: 'III' },
+      part1: { from: '#c89034', to: '#e8b556', numeral: 'I' },
+      part2: { from: '#2e9e85', to: '#5dc4ac', numeral: 'II' },
+      part3: { from: '#c25e72', to: '#e592a3', numeral: 'III' },
     };
 
     function PartHeroCard({ part, members, brands, tasks, stats, expanded, onToggle, onOpenBrand }) {
@@ -1067,9 +1067,7 @@
           onMouseLeave={(e) => { e.currentTarget.style.borderColor='var(--border)'; e.currentTarget.style.background='var(--surface)'; }}
         >
           <div className="absolute top-2.5 right-2.5 flex items-center gap-1">
-            {brand.active && (
-              <span title="신규/액티브" className="w-1.5 h-1.5 rounded-full" style={{background:'#7a8c5e'}}></span>
-            )}
+
 
           </div>
           <div>
@@ -1244,7 +1242,7 @@
                   {brand.name}
                 </h2>
                 
-                {brand.active && <span className="w-1.5 h-1.5 rounded-full" style={{background:'#7a8c5e'}}></span>}
+
 
               </div>
             </div>
@@ -1313,6 +1311,8 @@
       const author = item.kind === 'comment' ? memberById(item.comment.authorId) : memberById(item.task.createdBy);
       const d = new Date(item.when);
       const when = `${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+      const commentCount = (item.task.comments || []).length;
+      const replyLabel = replying ? '닫기' : (commentCount > 0 ? `답글보기 ${commentCount}` : '답글');
       return (
         <li className="rounded-sm" style={{border:'1px solid var(--border)', background:'var(--surface)'}}>
           <div className="p-3">
@@ -1336,15 +1336,24 @@
                         background: replying ? 'var(--ink)' : 'transparent',
                         border: '1px solid var(--ink)'
                       }}>
-                {replying ? '닫기' : '답글'}
+                {replyLabel}
               </button>
             </div>
             <p className="text-xs leading-relaxed mb-1.5" style={{color:'var(--text)'}}>
               <RichText text={item.kind === 'comment' ? item.comment.body : item.task.description} />
             </p>
-            <div className="text-[10px] tracking-wide" style={{color:'var(--text-faint)'}}>
-              {author?.name} {author?.title} · {when}
-              {(item.task.comments || []).length > 0 && <span> · 💬 {(item.task.comments || []).length}</span>}
+            <div className="text-[10px] tracking-wide flex items-center gap-1" style={{color:'var(--text-faint)'}}>
+              <span>{author?.name} {author?.title} · {when}</span>
+              {commentCount > 0 && (
+                <button onClick={() => setReplying(r => !r)}
+                        className="ml-1 transition cursor-pointer"
+                        style={{color: replying ? 'var(--ink)' : 'var(--text-muted)'}}
+                        onMouseEnter={(e)=>e.currentTarget.style.color='var(--ink)'}
+                        onMouseLeave={(e)=>e.currentTarget.style.color = replying ? 'var(--ink)' : 'var(--text-muted)'}
+                        title="답글 보기/닫기">
+                  · 💬 {commentCount}
+                </button>
+              )}
             </div>
           </div>
           {replying && (
@@ -1776,6 +1785,10 @@
       const isDone = task.status === 'done';
       const StatusIcon = s.icon;
       const [expanded, setExpanded] = useState(false);
+      const assigneeIds_ = task.assigneeIds || (task.assigneeId ? [task.assigneeId] : []);
+      const isAssignee = assigneeIds_.includes(currentUser);
+      const isAuthor = task.createdBy === currentUser;
+      const canEditTask = isAssignee || isAuthor;
       const commentCount = (task.comments || []).length;
       const descMentions = extractMentionIds(task.description || '');
       const cmtMentions = extractMentionIds((task.comments || []).map(c => c.body).join(' '));
@@ -1819,7 +1832,7 @@
               )}
               <div className="flex items-center gap-3 mt-1.5 text-[10px] tracking-wide flex-wrap" style={{color:'var(--text-muted)'}}>
                 <StatusButtons task={task} currentStatus={task.status}
-                  canEdit={currentUser === 'lee_dh' || (task.assigneeIds || []).includes(currentUser)}
+                  canEdit={isAssignee}
                   onChange={(next) => onChangeStatus && onChangeStatus(task.id, next)} />
                 {assignees.length > 0 && (
                   <span className="flex items-center gap-1">
@@ -1847,20 +1860,22 @@
                 </span>
               </div>
             </div>
-            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition flex-shrink-0">
-              <button onClick={onEdit} className="p-1 transition" style={{color:'var(--text-muted)'}}
-                      onMouseEnter={(e)=>e.currentTarget.style.color='var(--ink)'}
-                      onMouseLeave={(e)=>e.currentTarget.style.color='var(--text-muted)'}
-                      title="수정">
-                <Edit3 size={13} strokeWidth={1.5} />
-              </button>
-              <button onClick={onDelete} className="p-1 transition" style={{color:'var(--text-muted)'}}
-                      onMouseEnter={(e)=>e.currentTarget.style.color='#a83247'}
-                      onMouseLeave={(e)=>e.currentTarget.style.color='var(--text-muted)'}
-                      title="삭제">
-                <Trash2 size={13} strokeWidth={1.5} />
-              </button>
-            </div>
+            {canEditTask && (
+              <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition flex-shrink-0">
+                <button onClick={onEdit} className="p-1 transition" style={{color:'var(--text-muted)'}}
+                        onMouseEnter={(e)=>e.currentTarget.style.color='var(--ink)'}
+                        onMouseLeave={(e)=>e.currentTarget.style.color='var(--text-muted)'}
+                        title="수정">
+                  <Edit3 size={13} strokeWidth={1.5} />
+                </button>
+                <button onClick={onDelete} className="p-1 transition" style={{color:'var(--text-muted)'}}
+                        onMouseEnter={(e)=>e.currentTarget.style.color='#a83247'}
+                        onMouseLeave={(e)=>e.currentTarget.style.color='var(--text-muted)'}
+                        title="삭제">
+                  <Trash2 size={13} strokeWidth={1.5} />
+                </button>
+              </div>
+            )}
           </div>
           {expanded && onAddComment && (
             <div style={{borderTop: '1px solid var(--border)'}}>
