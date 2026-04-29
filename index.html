@@ -698,12 +698,7 @@
             {brand.active && (
               <span title="신규/액티브" className="w-1.5 h-1.5 rounded-full" style={{background:'#7a8c5e'}}></span>
             )}
-            {brand.region && (
-              <span className="text-[9px] tracking-widest px-1 py-px rounded-sm"
-                    style={{color:'var(--text-faint)', border:'1px solid var(--border-strong)'}}>
-                {brand.region}
-              </span>
-            )}
+
           </div>
           <div>
             <h3 className="text-base mb-1" style={{color:'var(--ink)', fontWeight: 500}}>{brand.name.split('/')[0]}</h3>
@@ -893,12 +888,7 @@
                 </h2>
                 
                 {brand.active && <span className="w-1.5 h-1.5 rounded-full" style={{background:'#7a8c5e'}}></span>}
-                {brand.region && (
-                  <span className="text-[10px] tracking-widest px-1.5 py-0.5 rounded-sm"
-                        style={{color:'var(--text-faint)', border:'1px solid var(--border-strong)'}}>
-                    {brand.region}
-                  </span>
-                )}
+
               </div>
             </div>
             <button onClick={onClose} className="transition" style={{color:'var(--text-muted)'}}
