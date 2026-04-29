@@ -16,11 +16,11 @@
 
   <style>
     :root {
-      --bg: #f2f3f5;
+      --bg: #f5f6f8;
       --surface: #ffffff;
-      --surface-2: #eaecef;
-      --border: #dee1e6;
-      --border-strong: #c4c8cf;
+      --surface-2: #edeef1;
+      --border: #e3e5ea;
+      --border-strong: #c8ccd3;
       --ink: #1e2746;
       --ink-soft: #2c3552;
       --text: #141414;
@@ -29,6 +29,9 @@
       --accent: #1e2746;
       --accent-soft: #5d6584;
       --warm: #b8a684;
+      --header-from: #2e3d5c;
+      --header-to: #3d4f73;
+      --header-mid: #354667;
     }
     html, body { background: var(--bg); color: var(--text); }
     body {
@@ -385,7 +388,7 @@
       const reload = () => { window.scrollTo({top:0, behavior:'smooth'}); setView('brands'); setTimeout(() => window.location.reload(), 50); };
 
       const onInk = scrolled;
-      const headerBg = onInk ? 'var(--ink)' : 'rgba(242,243,245,0.88)';
+      const headerBg = onInk ? 'linear-gradient(180deg, var(--header-from) 0%, var(--header-to) 100%)' : 'rgba(245,246,248,0.85)';
       const textCol = onInk ? 'rgba(255,255,255,0.92)' : 'var(--text)';
       const mutedCol = onInk ? 'rgba(255,255,255,0.62)' : 'var(--text-muted)';
       const faintCol = onInk ? 'rgba(255,255,255,0.45)' : 'var(--text-faint)';
