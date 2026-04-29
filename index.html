@@ -12,8 +12,7 @@
   <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
   <link rel="stylesheet"
         href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css" />
-  <link rel="stylesheet"
-        href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;500&family=Noto+Serif+KR:wght@300;400&display=swap" />
+  
 
   <style>
     :root {
@@ -24,9 +23,9 @@
       --border-strong: #d6cfbf;
       --ink: #1e2746;
       --ink-soft: #2c3552;
-      --text: #1f1f1f;
-      --text-muted: #767470;
-      --text-faint: #a8a59f;
+      --text: #141414;
+      --text-muted: #4a4a4a;
+      --text-faint: #8a8a8a;
       --accent: #1e2746;
       --accent-soft: #5d6584;
       --warm: #b8a684;
@@ -36,8 +35,9 @@
       font-family: 'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
       -webkit-font-smoothing: antialiased;
     }
-    .font-serif-display { font-family: 'Cormorant Garamond', 'Noto Serif KR', 'Apple SD Gothic Neo', serif; }
-    .font-serif-kr { font-family: 'Noto Serif KR', 'Apple SD Gothic Neo', serif; }
+    .font-display { font-family: 'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont, system-ui, sans-serif; font-weight: 700; letter-spacing: -0.01em; }
+    .font-display-light { font-family: 'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont, system-ui, sans-serif; font-weight: 600; letter-spacing: 0; }
+    .font-eyebrow { font-family: 'Pretendard Variable', Pretendard, system-ui, sans-serif; font-weight: 500; letter-spacing: 0.18em; }
     ::-webkit-scrollbar { width: 8px; height: 8px; }
     ::-webkit-scrollbar-track { background: transparent; }
     ::-webkit-scrollbar-thumb { background: #d6cfbf; border-radius: 4px; }
@@ -331,7 +331,7 @@
           </main>
 
           <footer className="max-w-6xl mx-auto px-8 py-10 text-xs tracking-[0.25em] uppercase border-t" style={{color:'var(--text-faint)', borderColor:'var(--border)'}}>
-            Grace International · Brand Management · Operations Console
+            Grace International · Brand Management · Operations
           </footer>
 
           {openBrand && (
@@ -461,7 +461,7 @@
                   style={{color: active ? 'var(--ink)' : 'var(--text-muted)', fontWeight: active ? 500 : 400}}>
               {label}
             </span>
-            <span className="text-xs tracking-[0.25em] uppercase font-serif-display italic" style={{color:'var(--text-faint)'}}>
+            <span className="text-xs tracking-[0.25em] uppercase font-eyebrow" style={{color:'var(--text-faint)'}}>
               {sub}
             </span>
           </div>
@@ -505,10 +505,10 @@
     function SectionLabel({ eyebrow, title, sub }) {
       return (
         <div className="mb-8 pb-5" style={{borderBottom:'1px solid var(--border)'}}>
-          <div className="text-xs tracking-[0.3em] uppercase font-serif-display italic" style={{color:'var(--text-faint)'}}>
+          <div className="text-xs tracking-[0.3em] uppercase font-eyebrow" style={{color:'var(--text-faint)'}}>
             {eyebrow}
           </div>
-          <h2 className="font-serif-display text-3xl mt-1.5 tracking-wide font-light" style={{color:'var(--ink)'}}>
+          <h2 className="font-display text-3xl mt-2 tracking-tight" style={{color:'var(--ink)'}}>
             {title}
           </h2>
           {sub && <p className="text-xs mt-2 tracking-wide" style={{color:'var(--text-muted)'}}>{sub}</p>}
@@ -538,7 +538,7 @@
             onMouseLeave={(e) => e.currentTarget.style.background='transparent'}
           >
             <div className="flex items-baseline gap-5 min-w-0 flex-wrap">
-              <span className="font-serif-display text-2xl font-light tracking-wider" style={{color:'var(--ink)'}}>
+              <span className="font-display text-2xl tracking-tight" style={{color:'var(--ink)'}}>
                 {part.label}
               </span>
               <span className="text-sm tracking-wider" style={{color:'var(--text-muted)'}}>{part.labelKo}</span>
@@ -637,7 +637,7 @@
                 style={{color:'var(--ink)', fontWeight: brand.priority ? 500 : 400}}>
               {brand.name}
             </h3>
-            <p className="text-[10px] tracking-[0.2em] uppercase font-serif-display italic" style={{color:'var(--text-faint)'}}>
+            <p className="text-[10px] tracking-[0.2em] uppercase font-eyebrow" style={{color:'var(--text-faint)'}}>
               {active > 0 ? `Active · ${active}` : 'No tasks'}
             </p>
           </div>
@@ -710,7 +710,7 @@
     function GroupHeader({ text, sub }) {
       return (
         <div className="mb-4 flex items-baseline gap-3 pb-2" style={{borderBottom:'1px solid var(--border)'}}>
-          <span className="font-serif-display text-lg font-light tracking-wider" style={{color:'var(--ink)'}}>{text}</span>
+          <span className="font-display-light text-lg tracking-tight" style={{color:'var(--ink)'}}>{text}</span>
           <span className="text-xs tracking-wider" style={{color:'var(--text-muted)'}}>{sub}</span>
         </div>
       );
@@ -752,8 +752,8 @@
               </div>
             </div>
             <div className="text-right flex-shrink-0">
-              <div className="font-serif-display text-2xl font-light tabular-nums" style={{color:'var(--ink)'}}>{active}</div>
-              <div className="text-[9px] tracking-[0.2em] uppercase font-serif-display italic" style={{color:'var(--text-faint)'}}>active</div>
+              <div className="font-display text-2xl font-light tabular-nums" style={{color:'var(--ink)'}}>{active}</div>
+              <div className="text-[9px] tracking-[0.2em] uppercase font-eyebrow" style={{color:'var(--text-faint)'}}>active</div>
             </div>
           </div>
           <div className="pt-2.5" style={{borderTop:'1px solid var(--border)'}}>
@@ -806,11 +806,11 @@
         <Modal onClose={onClose}>
           <div className="flex items-center justify-between px-8 py-6" style={{borderBottom:'1px solid var(--border)'}}>
             <div>
-              <div className="flex items-center gap-2 text-[10px] tracking-[0.3em] uppercase mb-1.5 font-serif-display italic" style={{color:'var(--text-faint)'}}>
+              <div className="flex items-center gap-2 text-[10px] tracking-[0.3em] uppercase mb-1.5 font-eyebrow" style={{color:'var(--text-faint)'}}>
                 Brand · {PARTS.find(p => p.id === brand.part)?.label}
               </div>
               <div className="flex items-center gap-3">
-                <h2 className="font-serif-display text-3xl font-light tracking-wide" style={{color:'var(--ink)'}}>
+                <h2 className="font-display text-3xl tracking-tight" style={{color:'var(--ink)'}}>
                   {brand.name}
                 </h2>
                 {brand.priority && <StarI size={14} strokeWidth={1.4} fillCurrent style={{color:'var(--ink)'}} />}
@@ -895,11 +895,11 @@
         <Modal onClose={onClose}>
           <div className="flex items-center justify-between px-8 py-6" style={{borderBottom:'1px solid var(--border)'}}>
             <div>
-              <div className="flex items-center gap-2 text-[10px] tracking-[0.3em] uppercase mb-1.5 font-serif-display italic" style={{color:'var(--text-faint)'}}>
+              <div className="flex items-center gap-2 text-[10px] tracking-[0.3em] uppercase mb-1.5 font-eyebrow" style={{color:'var(--text-faint)'}}>
                 {m.role}
               </div>
               <div className="flex items-baseline gap-3">
-                <h2 className="font-serif-display text-3xl font-light tracking-wide" style={{color:'var(--ink)'}}>{m.name}</h2>
+                <h2 className="font-display text-3xl tracking-tight" style={{color:'var(--ink)'}}>{m.name}</h2>
                 <span className="text-sm" style={{color:'var(--text-muted)'}}>{m.title}</span>
               </div>
             </div>
@@ -1093,7 +1093,7 @@
     function FormField({ label, children }) {
       return (
         <div>
-          <label className="text-[10px] tracking-[0.2em] uppercase mb-1 block font-serif-display italic" style={{color:'var(--text-faint)'}}>{label}</label>
+          <label className="text-[10px] tracking-[0.2em] uppercase mb-1 block font-eyebrow" style={{color:'var(--text-faint)'}}>{label}</label>
           {children}
         </div>
       );
@@ -1140,10 +1140,10 @@
       return (
         <Modal onClose={onClose}>
           <div className="px-8 py-6" style={{borderBottom:'1px solid var(--border)'}}>
-            <div className="text-[10px] tracking-[0.3em] uppercase mb-1.5 font-serif-display italic" style={{color:'var(--text-faint)'}}>
+            <div className="text-[10px] tracking-[0.3em] uppercase mb-1.5 font-eyebrow" style={{color:'var(--text-faint)'}}>
               {mode === 'create' ? 'New Task' : 'Edit Task'}
             </div>
-            <h2 className="font-serif-display text-2xl font-light tracking-wide" style={{color:'var(--ink)'}}>
+            <h2 className="font-display text-2xl tracking-tight" style={{color:'var(--ink)'}}>
               {mode === 'create' ? '새 작업 추가' : '작업 수정'}
             </h2>
           </div>
