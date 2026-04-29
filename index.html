@@ -435,7 +435,7 @@
     }
 
     function App() {
-      const [view, setView] = useState('brands');
+      const [view, setView] = useState('members');
       const [tasks, setTasks] = useState([]);
       const [loaded, setLoaded] = useState(false);
       const [openBrand, setOpenBrand] = useState(null);
@@ -724,7 +724,7 @@
        HEADER (Grace-style brand bar)
        ============================================================ */
     function Header({ view, setView, currentUser, onLogout, pins, onSetPin, onResetPin }) {
-      const reload = () => { window.scrollTo({top:0, behavior:'smooth'}); setView('brands'); setTimeout(() => window.location.reload(), 50); };
+      const reload = () => { window.scrollTo({top:0, behavior:'smooth'}); setView('members'); setTimeout(() => window.location.reload(), 50); };
       const me = memberById(currentUser);
       const headerBg = 'linear-gradient(180deg, var(--header-from) 0%, var(--header-to) 100%)';
       const textCol = 'rgba(255,255,255,0.92)';
