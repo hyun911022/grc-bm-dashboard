@@ -454,10 +454,10 @@
        ============================================================ */
     function BrandsView({ tasks, stats, onOpenBrand }) {
       const [selected, setSelected] = useState(null);
-      const visibleParts = selected ? PARTS.filter(p => p.id === selected) : PARTS;
+      const toggle = (id) => setSelected(prev => prev === id ? null : id);
       return (
-        <div className={`grid gap-4 transition-all duration-300 ${selected ? 'grid-cols-1' : 'grid-cols-1 md:grid-cols-3 stagger'}`}>
-          {visibleParts.map(part => (
+        <div className="flex flex-col gap-4 stagger">
+          {PARTS.map(part => (
             <PartHeroCard
               key={part.id}
               part={part}
@@ -466,8 +466,7 @@
               tasks={tasks}
               stats={stats}
               expanded={selected === part.id}
-              onClick={() => setSelected(part.id)}
-              onClose={() => setSelected(null)}
+              onToggle={() => toggle(part.id)}
               onOpenBrand={onOpenBrand}
             />
           ))}
@@ -481,65 +480,76 @@
       part3: { from: '#523840', to: '#825461', numeral: 'III' },
     };
 
-    function PartHeroCard({ part, members, brands, tasks, stats, expanded, onClick, onClose, onOpenBrand }) {
+    function PartHeroCard({ part, members, brands, tasks, stats, expanded, onToggle, onOpenBrand }) {
       const t = PART_THEME[part.id];
       const priorityBrands = brands.filter(b => b.priority);
       const otherCount = brands.length - priorityBrands.length;
       const totalActive = stats.byPartActive[part.id] || 0;
-      const total = stats.byPart[part.id] || 0;
-      const gradient = `linear-gradient(165deg, ${t.from} 0%, ${t.to} 100%)`;
+      const gradient = `linear-gradient(135deg, ${t.from} 0%, ${t.to} 100%)`;
 
-      if (expanded) {
-        return (
-          <div className="rounded-lg overflow-hidden fade-up"
-               style={{boxShadow: '0 1px 2px rgba(30,39,70,0.06), 0 18px 40px -22px rgba(30,39,70,0.32)'}}>
-            <div className="relative px-9 py-9" style={{background: gradient, color: 'white'}}>
-              <div className="hero-overlay"></div>
-              <div className="relative">
-                <button onClick={onClose}
-                        className="mb-5 inline-flex items-center gap-1.5 text-xs tracking-wider transition"
-                        style={{color: 'rgba(255,255,255,0.7)'}}
-                        onMouseEnter={(e) => e.currentTarget.style.color = 'white'}
-                        onMouseLeave={(e) => e.currentTarget.style.color = 'rgba(255,255,255,0.7)'}>
-                  <span style={{fontSize: '13px'}}>←</span> 모든 Pod 보기
-                </button>
-                <div className="flex items-end justify-between gap-6 flex-wrap">
-                  <div>
-                    <div className="text-xs font-eyebrow uppercase mb-2" style={{color: 'rgba(255,255,255,0.6)'}}>
-                      POD
-                    </div>
-                    <h2 className="font-display tracking-tight" style={{fontSize: '52px', lineHeight: 1, marginBottom: '14px'}}>
-                      {t.numeral}
-                    </h2>
-                    <div className="text-base mb-1" style={{color: 'rgba(255,255,255,0.92)', fontWeight: 500}}>
-                      {priorityBrands.map(b => b.name).join(' · ')}
-                    </div>
-                    {otherCount > 0 && (
-                      <div className="text-xs" style={{color: 'rgba(255,255,255,0.6)'}}>+ {otherCount} brands</div>
-                    )}
-                    <div className="text-xs mt-3" style={{color: 'rgba(255,255,255,0.6)'}}>
-                      {members.map(m => `${m.name} ${m.title}`).join(' · ')}
-                    </div>
+      return (
+        <div className="rounded-lg overflow-hidden transition-shadow duration-500"
+             style={{
+               boxShadow: expanded
+                 ? '0 1px 2px rgba(30,39,70,0.08), 0 24px 56px -24px rgba(30,39,70,0.4)'
+                 : '0 1px 2px rgba(30,39,70,0.05), 0 12px 28px -16px rgba(30,39,70,0.18)'
+             }}>
+          {/* Always-visible header row — click anywhere to toggle */}
+          <button onClick={onToggle}
+                  className="relative w-full text-left group transition-all duration-500"
+                  style={{
+                    background: gradient,
+                    color: 'white',
+                    padding: expanded ? '34px 36px' : '26px 32px',
+                  }}>
+            <div className="hero-overlay"></div>
+            <div className="relative flex items-center justify-between gap-6 flex-wrap">
+              <div className="flex items-start gap-7 flex-wrap min-w-0">
+                <div className="flex-shrink-0">
+                  <div className="text-xs font-eyebrow uppercase mb-1" style={{color: 'rgba(255,255,255,0.55)'}}>
+                    POD
                   </div>
-                  <div className="flex items-baseline gap-7">
-                    <div>
-                      <div className="font-display tabular-nums" style={{fontSize: '32px', lineHeight: 1, fontWeight: 300}}>{brands.length}</div>
-                      <div className="text-xs font-eyebrow uppercase mt-1" style={{color: 'rgba(255,255,255,0.55)'}}>Brands</div>
-                    </div>
-                    <div>
-                      <div className="font-display tabular-nums" style={{fontSize: '32px', lineHeight: 1, fontWeight: 300}}>{totalActive}</div>
-                      <div className="text-xs font-eyebrow uppercase mt-1" style={{color: 'rgba(255,255,255,0.55)'}}>Active</div>
-                    </div>
-                    <div>
-                      <div className="font-display tabular-nums" style={{fontSize: '32px', lineHeight: 1, fontWeight: 300}}>{total}</div>
-                      <div className="text-xs font-eyebrow uppercase mt-1" style={{color: 'rgba(255,255,255,0.55)'}}>Total</div>
-                    </div>
+                  <div className="font-display tracking-tight transition-all duration-500"
+                       style={{fontSize: expanded ? '60px' : '44px', lineHeight: 0.95}}>
+                    {t.numeral}
+                  </div>
+                </div>
+                <div className="flex flex-col justify-center min-w-0" style={{minHeight: expanded ? '64px' : '52px'}}>
+                  <div className="text-base mb-1.5" style={{color: 'rgba(255,255,255,0.94)', fontWeight: 500}}>
+                    {priorityBrands.map(b => b.name).join(' · ')}
+                    {otherCount > 0 && <span style={{color: 'rgba(255,255,255,0.55)', fontWeight: 400, marginLeft: '10px'}}>+ {otherCount} brands</span>}
+                  </div>
+                  <div className="text-xs" style={{color: 'rgba(255,255,255,0.6)'}}>
+                    {members.map(m => `${m.name} ${m.title}`).join(' · ')}
                   </div>
                 </div>
               </div>
+              <div className="flex items-center gap-6 flex-shrink-0">
+                <div className="flex items-baseline gap-5">
+                  <div>
+                    <div className="font-display tabular-nums" style={{fontSize: '22px', lineHeight: 1, fontWeight: 300}}>{brands.length}</div>
+                    <div className="text-xs font-eyebrow uppercase mt-0.5" style={{color: 'rgba(255,255,255,0.55)'}}>Brands</div>
+                  </div>
+                  <div>
+                    <div className="font-display tabular-nums" style={{fontSize: '22px', lineHeight: 1, fontWeight: 300}}>{totalActive}</div>
+                    <div className="text-xs font-eyebrow uppercase mt-0.5" style={{color: 'rgba(255,255,255,0.55)'}}>Active</div>
+                  </div>
+                </div>
+                <span className="transition-transform duration-500"
+                      style={{
+                        color: 'rgba(255,255,255,0.85)',
+                        transform: expanded ? 'rotate(180deg)' : 'rotate(0deg)',
+                      }}>
+                  <ChevronDown size={22} strokeWidth={1.6} />
+                </span>
+              </div>
             </div>
+          </button>
+
+          {/* Brand grid — accordion-revealed */}
+          <div className="acc-content" style={{maxHeight: expanded ? '1600px' : '0px'}}>
             <div className="px-7 py-7" style={{background: 'var(--surface)', borderTop: '1px solid var(--border)'}}>
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 stagger">
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
                 {brands.map(b => (
                   <BrandCard
                     key={b.id}
@@ -553,57 +563,11 @@
               </div>
             </div>
           </div>
-        );
-      }
-
-      return (
-        <button onClick={onClick}
-                className="group relative rounded-lg overflow-hidden text-left transition-all duration-300"
-                style={{
-                  background: gradient,
-                  minHeight: '420px', color: 'white',
-                  boxShadow: '0 1px 2px rgba(30,39,70,0.05), 0 12px 28px -16px rgba(30,39,70,0.18)'
-                }}
-                onMouseEnter={(e) => e.currentTarget.style.boxShadow = '0 1px 2px rgba(30,39,70,0.08), 0 24px 48px -20px rgba(30,39,70,0.35)'}
-                onMouseLeave={(e) => e.currentTarget.style.boxShadow = '0 1px 2px rgba(30,39,70,0.05), 0 12px 28px -16px rgba(30,39,70,0.18)'}>
-          <div className="hero-overlay"></div>
-          <div className="relative h-full flex flex-col justify-between p-7" style={{minHeight: '420px'}}>
-            <div>
-              <div className="text-xs font-eyebrow uppercase mb-3" style={{color: 'rgba(255,255,255,0.6)'}}>
-                POD
-              </div>
-              <h3 className="font-display tracking-tight" style={{fontSize: '64px', lineHeight: 0.95, marginBottom: '20px'}}>
-                {t.numeral}
-              </h3>
-              <div className="text-base leading-snug mb-1" style={{color: 'rgba(255,255,255,0.94)', fontWeight: 500}}>
-                {priorityBrands.map(b => b.name).join(' · ')}
-              </div>
-              {otherCount > 0 && (
-                <div className="text-xs" style={{color: 'rgba(255,255,255,0.55)'}}>+ {otherCount} brands</div>
-              )}
-            </div>
-            <div>
-              <div className="mb-5 text-xs leading-relaxed" style={{color: 'rgba(255,255,255,0.6)'}}>
-                {members.map(m => `${m.name} ${m.title}`).join(' · ')}
-              </div>
-              <div className="flex items-end justify-between">
-                <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs tracking-wide"
-                     style={{border: '1px solid rgba(255,255,255,0.45)'}}>
-                  {brands.length} Brands
-                  {totalActive > 0 && <span style={{color:'rgba(255,255,255,0.65)'}}>· {totalActive} active</span>}
-                </div>
-                <span className="transition-transform duration-300 group-hover:translate-x-1 group-hover:-translate-y-1"
-                      style={{color: 'rgba(255,255,255,0.85)'}}>
-                  <ArrowUpRight size={22} strokeWidth={1.6} />
-                </span>
-              </div>
-            </div>
-          </div>
-        </button>
+        </div>
       );
     }
 
-    function BrandCard({ brand, total, active, brandTasks, onClick }) {
+        function BrandCard({ brand, total, active, brandTasks, onClick }) {
       const breakdown = STATUS.map(s => ({
         ...s, count: brandTasks.filter(t => t.status === s.id).length
       }));
