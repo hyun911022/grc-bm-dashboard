@@ -745,12 +745,12 @@
               </span>
             </button>
             <div className="flex items-center gap-5">
-              <UserPicker currentUser={currentUser} onLogout={onLogout} pins={pins} onSetPin={onSetPin} onResetPin={onResetPin} />
-              <span className="hidden md:inline-block w-px h-5" style={{background: dividerCol}}></span>
               <div className="flex items-center">
                 <TabBtn active={view === 'brands'}  onClick={() => setView('brands')}  label="브랜드" sub="Brands" />
                 <TabBtn active={view === 'members'} onClick={() => setView('members')} label="담당자" sub="People" last />
               </div>
+              <span className="hidden md:inline-block w-px h-5" style={{background: dividerCol}}></span>
+              <UserPicker currentUser={currentUser} onLogout={onLogout} pins={pins} onSetPin={onSetPin} onResetPin={onResetPin} />
             </div>
           </div>
         </header>
