@@ -1380,7 +1380,7 @@
               </div>
             </div>
             <div className="flex items-center gap-2">
-              {currentUser === 'lee_dh' && memberId !== 'lee_dh' && (
+              {(currentUser === 'lee_dh' || currentUser === 'park_hb') && memberId !== currentUser && (
                 <button onClick={() => onAssign(memberId)}
                         className="text-xs px-3.5 py-1.5 rounded-full transition tracking-wide flex items-center gap-1.5"
                         style={{background:'var(--ink)', color:'white'}}>
