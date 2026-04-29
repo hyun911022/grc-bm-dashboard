@@ -16,11 +16,11 @@
 
   <style>
     :root {
-      --bg: #faf8f4;
+      --bg: #f2f3f5;
       --surface: #ffffff;
-      --surface-2: #f5f2ec;
-      --border: #e8e3d8;
-      --border-strong: #d6cfbf;
+      --surface-2: #eaecef;
+      --border: #dee1e6;
+      --border-strong: #c4c8cf;
       --ink: #1e2746;
       --ink-soft: #2c3552;
       --text: #141414;
@@ -40,8 +40,8 @@
     .font-eyebrow { font-family: 'Pretendard Variable', Pretendard, system-ui, sans-serif; font-weight: 500; letter-spacing: 0.18em; }
     ::-webkit-scrollbar { width: 8px; height: 8px; }
     ::-webkit-scrollbar-track { background: transparent; }
-    ::-webkit-scrollbar-thumb { background: #d6cfbf; border-radius: 4px; }
-    ::-webkit-scrollbar-thumb:hover { background: #b8b0a0; }
+    ::-webkit-scrollbar-thumb { background: #c4c8cf; border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: #9aa0aa; }
     input[type="date"] { color-scheme: light; }
     /* Smooth accordion */
     .acc-content { overflow: hidden; transition: max-height 0.45s cubic-bezier(0.4, 0, 0.2, 1); }
@@ -374,53 +374,61 @@
        HEADER (Grace-style brand bar)
        ============================================================ */
     function Header({ view, setView, stats, showHidden, setShowHidden, onNew }) {
+      const [scrolled, setScrolled] = useState(false);
+      useEffect(() => {
+        const onScroll = () => setScrolled(window.scrollY > 24);
+        window.addEventListener('scroll', onScroll, { passive: true });
+        onScroll();
+        return () => window.removeEventListener('scroll', onScroll);
+      }, []);
+
+      const reload = () => { window.scrollTo({top:0, behavior:'smooth'}); setView('brands'); setTimeout(() => window.location.reload(), 50); };
+
+      const onInk = scrolled;
+      const headerBg = onInk ? 'var(--ink)' : 'rgba(242,243,245,0.88)';
+      const textCol = onInk ? 'rgba(255,255,255,0.92)' : 'var(--text)';
+      const mutedCol = onInk ? 'rgba(255,255,255,0.62)' : 'var(--text-muted)';
+      const faintCol = onInk ? 'rgba(255,255,255,0.45)' : 'var(--text-faint)';
+      const borderCol = onInk ? 'rgba(255,255,255,0.12)' : 'var(--border)';
+      const dividerCol = onInk ? 'rgba(255,255,255,0.18)' : 'var(--border-strong)';
+
       return (
-        <header className="sticky top-0 z-30 backdrop-blur" style={{background:'rgba(250,248,244,0.92)', borderBottom:'1px solid var(--border)'}}>
-          {/* Top brand bar */}
-          <div className="max-w-6xl mx-auto px-8 pt-8 pb-6 flex items-end justify-between flex-wrap gap-4">
-            <div className="flex items-center gap-5">
+        <header className="sticky top-0 z-30 backdrop-blur transition-colors duration-300"
+                style={{background: headerBg, borderBottom: '1px solid ' + borderCol}}>
+          <div className="max-w-6xl mx-auto px-8 pt-7 pb-5 flex items-center justify-between flex-wrap gap-4">
+            <button onClick={reload}
+                    className="flex items-center gap-5 group cursor-pointer"
+                    title="처음으로">
               <img src={LOGO_SRC} alt="Grace International"
-                   style={{height:'24px', width:'auto', filter:'none'}}
-                   className="opacity-90" />
-              <span className="hidden md:inline-block w-px h-6" style={{background:'var(--border-strong)'}}></span>
-              <div className="hidden md:block">
-                <div className="text-xs tracking-[0.35em] uppercase font-light" style={{color:'var(--text-muted)'}}>
+                   style={{height:'22px', width:'auto', filter: onInk ? 'brightness(0) invert(1)' : 'none', transition:'filter 0.3s ease'}}
+                   className="opacity-95 group-hover:opacity-100" />
+              <span className="hidden md:inline-block w-px h-6 transition-colors" style={{background: dividerCol}}></span>
+              <div className="hidden md:block text-left">
+                <div className="text-xs font-eyebrow uppercase transition-colors"
+                     style={{color: mutedCol, fontWeight: 500}}>
                   Brand Management
                 </div>
-                <div className="text-xs tracking-wider mt-0.5" style={{color:'var(--text-faint)'}}>
+                <div className="text-xs tracking-wider mt-0.5 transition-colors" style={{color: faintCol}}>
                   부서 운영 콘솔
                 </div>
               </div>
-            </div>
-            <div className="flex items-center gap-7 text-xs" style={{color:'var(--text-muted)'}}>
-              <Stat label="전체" value={stats.total} />
-              <span className="w-px h-4" style={{background:'var(--border-strong)'}}></span>
-              <Stat label="진행중" value={stats.inProgress} highlight />
-              <span className="w-px h-4" style={{background:'var(--border-strong)'}}></span>
-              <Stat label="활성" value={stats.active} highlight />
-              {stats.overdue > 0 && (
-                <>
-                  <span className="w-px h-4" style={{background:'var(--border-strong)'}}></span>
-                  <Stat label="지연" value={stats.overdue} danger />
-                </>
-              )}
-            </div>
+            </button>
           </div>
 
-          {/* Tab + actions row */}
-          <div className="max-w-6xl mx-auto px-8 flex items-center justify-between flex-wrap" style={{borderTop:'1px solid var(--border)'}}>
+          <div className="max-w-6xl mx-auto px-8 flex items-center justify-between flex-wrap"
+               style={{borderTop: '1px solid ' + borderCol}}>
             <div className="flex">
-              <TabBtn active={view === 'brands'}  onClick={() => setView('brands')}  label="브랜드" sub="Brands" />
-              <TabBtn active={view === 'members'} onClick={() => setView('members')} label="담당자" sub="People" />
+              <TabBtn active={view === 'brands'}  onClick={() => setView('brands')}  label="브랜드" sub="Brands" onInk={onInk} />
+              <TabBtn active={view === 'members'} onClick={() => setView('members')} label="담당자" sub="People" onInk={onInk} />
             </div>
             <div className="flex items-center gap-2 py-3">
               <button
                 onClick={() => setShowHidden(s => !s)}
                 className="text-xs px-3.5 py-1.5 rounded-full border transition tracking-wide"
                 style={{
-                  borderColor: showHidden ? 'var(--ink)' : 'var(--border)',
-                  background: showHidden ? 'var(--ink)' : 'transparent',
-                  color: showHidden ? 'white' : 'var(--text-muted)',
+                  borderColor: showHidden ? (onInk ? 'rgba(255,255,255,0.55)' : 'var(--ink)') : borderCol,
+                  background: showHidden ? (onInk ? 'rgba(255,255,255,0.12)' : 'var(--ink)') : 'transparent',
+                  color: showHidden ? (onInk ? 'white' : 'white') : mutedCol,
                 }}
               >
                 완료 {showHidden ? '표시' : '숨김'}
@@ -428,9 +436,10 @@
               <button
                 onClick={onNew}
                 className="text-xs px-4 py-1.5 rounded-full transition tracking-wide flex items-center gap-1.5"
-                style={{background:'var(--ink)', color:'white'}}
-                onMouseEnter={(e) => e.currentTarget.style.background='var(--ink-soft)'}
-                onMouseLeave={(e) => e.currentTarget.style.background='var(--ink)'}
+                style={{
+                  background: onInk ? 'white' : 'var(--ink)',
+                  color: onInk ? 'var(--ink)' : 'white'
+                }}
               >
                 <Plus size={12} strokeWidth={2.2} /> 새 작업
               </button>
@@ -450,25 +459,24 @@
       );
     }
 
-    function TabBtn({ active, onClick, label, sub }) {
+    function TabBtn({ active, onClick, label, sub, onInk }) {
+      const activeCol = onInk ? 'white' : 'var(--ink)';
+      const inactiveCol = onInk ? 'rgba(255,255,255,0.62)' : 'var(--text-muted)';
+      const subCol = onInk ? 'rgba(255,255,255,0.45)' : 'var(--text-faint)';
+      const underline = onInk ? 'white' : 'var(--ink)';
       return (
-        <button
-          onClick={onClick}
-          className="px-1 py-4 mr-10 transition group relative"
-        >
+        <button onClick={onClick} className="px-1 py-4 mr-10 transition group relative">
           <div className="flex items-baseline gap-2">
             <span className={`text-sm tracking-wider transition ${active ? '' : 'group-hover:opacity-70'}`}
-                  style={{color: active ? 'var(--ink)' : 'var(--text-muted)', fontWeight: active ? 500 : 400}}>
+                  style={{color: active ? activeCol : inactiveCol, fontWeight: active ? 500 : 400}}>
               {label}
             </span>
-            <span className="text-xs tracking-[0.25em] uppercase font-eyebrow" style={{color:'var(--text-faint)'}}>
+            <span className="text-xs tracking-[0.25em] uppercase font-eyebrow" style={{color: subCol}}>
               {sub}
             </span>
           </div>
-          <span
-            className="absolute bottom-0 left-0 h-px transition-all"
-            style={{width: active ? '100%' : '0%', background:'var(--ink)'}}
-          ></span>
+          <span className="absolute bottom-0 left-0 h-px transition-all"
+                style={{width: active ? '100%' : '0%', background: underline}}></span>
         </button>
       );
     }
@@ -479,11 +487,7 @@
     function BrandsView({ tasks, stats, expandedParts, onTogglePart, showHidden, onOpenBrand }) {
       return (
         <div className="space-y-5">
-          <SectionLabel
-            eyebrow="Section 01"
-            title="브랜드 포트폴리오"
-            sub="파트별로 묶인 36개 브랜드. 파트를 눌러 펼치세요."
-          />
+          <SectionLabel title="브랜드 포트폴리오" />
           {PARTS.map(part => (
             <PartAccordion
               key={part.id}
@@ -502,16 +506,12 @@
       );
     }
 
-    function SectionLabel({ eyebrow, title, sub }) {
+    function SectionLabel({ title }) {
       return (
         <div className="mb-8 pb-5" style={{borderBottom:'1px solid var(--border)'}}>
-          <div className="text-xs tracking-[0.3em] uppercase font-eyebrow" style={{color:'var(--text-faint)'}}>
-            {eyebrow}
-          </div>
-          <h2 className="font-display text-3xl mt-2 tracking-tight" style={{color:'var(--ink)'}}>
+          <h2 className="font-display text-3xl tracking-tight" style={{color:'var(--ink)'}}>
             {title}
           </h2>
-          {sub && <p className="text-xs mt-2 tracking-wide" style={{color:'var(--text-muted)'}}>{sub}</p>}
         </div>
       );
     }
@@ -519,7 +519,6 @@
     function PartAccordion({ part, members, brands, tasks, stats, expanded, onToggle, showHidden, onOpenBrand }) {
       const totalTasks = stats.byPart[part.id] || 0;
       const activeTasks = stats.byPartActive[part.id] || 0;
-      const priorityCount = brands.filter(b => b.priority).length;
       const activeBrands = brands.filter(b => b.active).length;
       const ref = useRef(null);
 
@@ -558,12 +557,7 @@
                   <span style={{fontSize:'10px'}} className="tracking-[0.2em] uppercase">브랜드</span>
                   <span className="tabular-nums text-sm font-light" style={{color:'var(--ink)'}}>{brands.length}</span>
                 </span>
-                {priorityCount > 0 && (
-                  <span className="flex items-baseline gap-1.5">
-                    <span style={{fontSize:'10px'}} className="tracking-[0.2em] uppercase">중점</span>
-                    <span className="tabular-nums text-sm font-light" style={{color:'var(--ink)'}}>{priorityCount}</span>
-                  </span>
-                )}
+
                 {activeTasks > 0 && (
                   <span className="flex items-baseline gap-1.5">
                     <span style={{fontSize:'10px'}} className="tracking-[0.2em] uppercase">진행</span>
@@ -611,17 +605,13 @@
           style={{
             background:'var(--surface)',
             border: '1px solid var(--border)',
-            boxShadow: brand.priority ? 'inset 0 0 0 1px rgba(30,39,70,0.08)' : 'none',
+            boxShadow: 'none',
           }}
           onMouseEnter={(e) => { e.currentTarget.style.borderColor='var(--ink)'; e.currentTarget.style.background='var(--surface-2)'; }}
           onMouseLeave={(e) => { e.currentTarget.style.borderColor='var(--border)'; e.currentTarget.style.background='var(--surface)'; }}
         >
           <div className="absolute top-2.5 right-2.5 flex items-center gap-1">
-            {brand.priority && (
-              <span title="중점 브랜드" style={{color:'var(--ink)'}}>
-                <StarI size={10} strokeWidth={1.4} fillCurrent />
-              </span>
-            )}
+
             {brand.active && (
               <span title="신규/액티브" className="w-1.5 h-1.5 rounded-full" style={{background:'#7a8c5e'}}></span>
             )}
@@ -634,7 +624,7 @@
           </div>
           <div>
             <h3 className="text-base mb-1"
-                style={{color:'var(--ink)', fontWeight: brand.priority ? 500 : 400}}>
+                style={{color:'var(--ink)', fontWeight: 500}}>
               {brand.name}
             </h3>
             <p className="text-[10px] tracking-[0.2em] uppercase font-eyebrow" style={{color:'var(--text-faint)'}}>
@@ -663,11 +653,7 @@
     function MembersView({ tasks, stats, showHidden, onOpenMember }) {
       return (
         <div className="space-y-10">
-          <SectionLabel
-            eyebrow="Section 02"
-            title="담당자별 아젠다"
-            sub="모든 부서원의 진행중 작업을 한눈에. 카드를 눌러 상세를 확인하세요."
-          />
+          <SectionLabel title="담당자별 아젠다" />
 
           {/* Leadership */}
           <div>
@@ -813,7 +799,7 @@
                 <h2 className="font-display text-3xl tracking-tight" style={{color:'var(--ink)'}}>
                   {brand.name}
                 </h2>
-                {brand.priority && <StarI size={14} strokeWidth={1.4} fillCurrent style={{color:'var(--ink)'}} />}
+                
                 {brand.active && <span className="w-1.5 h-1.5 rounded-full" style={{background:'#7a8c5e'}}></span>}
                 {brand.region && (
                   <span className="text-[10px] tracking-widest px-1.5 py-0.5 rounded-sm"
