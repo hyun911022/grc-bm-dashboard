@@ -1,0 +1,1086 @@
+<!DOCTYPE html>
+<html lang="ko" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GRC · BM Dashboard</title>
+  <meta name="description" content="Grace International — Brand Management Operations Dashboard" />
+  <link rel="icon" href="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='80' font-size='80' fill='%23d4a574'>★</text></svg>" />
+
+  <!-- Tailwind (Play CDN, full JIT) -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = { darkMode: 'class' };
+  </script>
+
+  <!-- Pretendard for refined Korean typography -->
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
+  <link rel="stylesheet" as="style"
+        href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css" />
+  <link rel="stylesheet"
+        href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@300;400;500&display=swap" />
+
+  <style>
+    html, body { background: #09090b; color: #fafafa; }
+    body { font-family: 'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
+    /* Subtle scrollbar */
+    ::-webkit-scrollbar { width: 8px; height: 8px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #27272a; border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: #3f3f46; }
+    /* Dark date input */
+    input[type="date"] { color-scheme: dark; }
+  </style>
+
+  <!-- React 18 + Babel -->
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel" data-presets="env,react">
+    /* =========================================================
+       GRC BM Dashboard — GitHub Pages build
+       ========================================================= */
+    const { useState, useEffect, useMemo } = React;
+
+    // ---------- Inline Lucide icons (subset) ----------
+    const ICONS = {
+      Plus: <><path d="M5 12h14M12 5v14"/></>,
+      X:    <><path d="M18 6 6 18M6 6l12 12"/></>,
+      Calendar: <><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></>,
+      Star: <><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></>,
+      Circle: <><circle cx="12" cy="12" r="10"/></>,
+      CheckCircle2: <><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></>,
+      Clock: <><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></>,
+      AlertCircle: <><circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/></>,
+      ChevronRight: <><polyline points="9 18 15 12 9 6"/></>,
+      Briefcase: <><rect width="20" height="14" x="2" y="7" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></>,
+      Users: <><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></>,
+      Trash2: <><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></>,
+      Edit3: <><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z"/></>,
+      Crown: <><path d="M11.562 3.266a.5.5 0 0 1 .876 0L15.39 8.87a1 1 0 0 0 1.516.294L21.183 5.5a.5.5 0 0 1 .798.519l-2.834 10.246a1 1 0 0 1-.956.734H5.81a1 1 0 0 1-.957-.734L2.02 6.02a.5.5 0 0 1 .798-.519l4.276 3.664a1 1 0 0 0 1.516-.294z"/><path d="M5 21h14"/></>,
+      Shield: <><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/></>,
+      ArrowUpRight: <><path d="M7 7h10v10"/><path d="M7 17 17 7"/></>,
+    };
+    function Icon({ name, size = 16, strokeWidth = 1.6, className = '', fillCurrent = false, ...rest }) {
+      return (
+        <svg
+          width={size} height={size} viewBox="0 0 24 24"
+          fill={fillCurrent ? 'currentColor' : 'none'}
+          stroke="currentColor" strokeWidth={strokeWidth}
+          strokeLinecap="round" strokeLinejoin="round"
+          className={className} {...rest}
+        >
+          {ICONS[name]}
+        </svg>
+      );
+    }
+    const Plus         = (p) => <Icon name="Plus" {...p} />;
+    const XIcon        = (p) => <Icon name="X" {...p} />;
+    const CalendarI    = (p) => <Icon name="Calendar" {...p} />;
+    const StarI        = (p) => <Icon name="Star" {...p} />;
+    const CircleI      = (p) => <Icon name="Circle" {...p} />;
+    const CheckCircle2 = (p) => <Icon name="CheckCircle2" {...p} />;
+    const ClockI       = (p) => <Icon name="Clock" {...p} />;
+    const AlertCircleI = (p) => <Icon name="AlertCircle" {...p} />;
+    const ChevronRight = (p) => <Icon name="ChevronRight" {...p} />;
+    const BriefcaseI   = (p) => <Icon name="Briefcase" {...p} />;
+    const UsersI       = (p) => <Icon name="Users" {...p} />;
+    const Trash2       = (p) => <Icon name="Trash2" {...p} />;
+    const Edit3        = (p) => <Icon name="Edit3" {...p} />;
+    const CrownI       = (p) => <Icon name="Crown" {...p} />;
+    const ShieldI      = (p) => <Icon name="Shield" {...p} />;
+    const ArrowUpRight = (p) => <Icon name="ArrowUpRight" {...p} />;
+
+    // ---------- DATA ----------
+    const MEMBERS = [
+      { id: 'lee_dh',  name: '이동현', title: '차장', role: '부서장', group: 'head' },
+      { id: 'park_hb', name: '박형배', title: '차장', role: '팀장',   group: 'head' },
+      { id: 'kim_jw',  name: '김지원', title: '대리', role: '파트1',  group: 'part1' },
+      { id: 'jung_dh', name: '정단희', title: '주임', role: '파트1',  group: 'part1' },
+      { id: 'kim_hj',  name: '김혜진', title: '대리', role: '파트2',  group: 'part2' },
+      { id: 'shin_cy', name: '신채윤', title: '대리', role: '파트2',  group: 'part2' },
+      { id: 'kwak_nh', name: '곽나현', title: '주임', role: '파트2',  group: 'part2' },
+      { id: 'yang_sb', name: '양승비', title: '주임', role: '파트3',  group: 'part3' },
+      { id: 'noh_km',  name: '노경민', title: '사원', role: '파트3',  group: 'part3' },
+    ];
+
+    const PARTS = [
+      { id: 'part1', label: '파트1', members: ['kim_jw', 'jung_dh'] },
+      { id: 'part2', label: '파트2', members: ['kim_hj', 'shin_cy', 'kwak_nh'] },
+      { id: 'part3', label: '파트3', members: ['yang_sb', 'noh_km'] },
+    ];
+
+    const BRANDS = [
+      // 파트1
+      { id: 'bodyfantasy',   name: '바디판타지',          part: 'part1', priority: true },
+      { id: 'akoroyal',      name: '아코로얄',            part: 'part1', priority: true },
+      { id: 'summerseve',    name: '썸머스이브',          part: 'part1' },
+      { id: 'ares',          name: '아레스',              part: 'part1' },
+      { id: 'snidel',        name: '스나이델뷰티',        part: 'part1' },
+      { id: 'selahatin',     name: '셀라하틴',            part: 'part1', region: 'KR/JP' },
+      { id: 'tinyassoc',     name: 'Tiny Associates',     part: 'part1' },
+      { id: 'javars',        name: '자바스',              part: 'part1', active: true },
+      { id: 'drteals',       name: '닥터틸즈',            part: 'part1' },
+      { id: 'pyt',           name: 'Pyt',                 part: 'part1' },
+      { id: 'qualityfirst',  name: 'Quality First',       part: 'part1' },
+      { id: 'plusone',       name: '플러스원',            part: 'part1' },
+      // 파트2
+      { id: 'mustela',       name: '무스텔라',            part: 'part2', priority: true },
+      { id: 'yvesrocher',    name: '이브로쉐',            part: 'part2', priority: true },
+      { id: 'briochin',      name: '브리오신',            part: 'part2', priority: true },
+      { id: 'chapstick',     name: 'Chapstick',           part: 'part2', region: 'KR/JP' },
+      { id: 'saborino',      name: '사보리노',            part: 'part2' },
+      { id: 'okamoto',       name: '오카모토',            part: 'part2' },
+      { id: 'jolen',         name: '졸렌',                part: 'part2' },
+      { id: 'tangentgc',     name: '탄젠트GC',            part: 'part2' },
+      { id: 'herbacin',      name: '허바신',              part: 'part2' },
+      { id: 'trilogy',       name: '트릴로지',            part: 'part2' },
+      { id: 'evian',         name: '에비앙',              part: 'part2' },
+      { id: 'detclear',      name: '데트클리어',          part: 'part2' },
+      // 파트3
+      { id: 'biogaia',       name: '바이오가이아',        part: 'part3', priority: true },
+      { id: 'flackers',      name: '플랙커스/이마트PB',   part: 'part3', priority: true },
+      { id: 'yoru',          name: '요루',                part: 'part3' },
+      { id: 'shinoru',       name: '시노루',              part: 'part3' },
+      { id: 'redsavon',      name: '레드드사봉',          part: 'part3' },
+      { id: 'airoasis',      name: '에어오아시스',        part: 'part3' },
+      { id: 'galantino',     name: '갈란티노',            part: 'part3', active: true },
+      { id: 'bearbells',     name: '베어벨스',            part: 'part3', active: true },
+      { id: 'closterkitchen',name: '클로스터키친',        part: 'part3', active: true },
+      { id: 'hydralyte',     name: '하이드라라이트',      part: 'part3', active: true },
+      { id: 'drsoul',        name: '닥터솔',              part: 'part3' },
+      { id: 'ecotools',      name: '에코툴즈',            part: 'part3', region: 'KR/JP' },
+    ];
+
+    const STATUS = [
+      { id: 'pending',     label: '대기',   icon: CircleI,        cls: 'text-zinc-500',    dot: 'bg-zinc-600' },
+      { id: 'in_progress', label: '진행중', icon: ClockI,         cls: 'text-sky-300',     dot: 'bg-sky-400' },
+      { id: 'review',      label: '검토',   icon: AlertCircleI,   cls: 'text-amber-300',   dot: 'bg-amber-400' },
+      { id: 'done',        label: '완료',   icon: CheckCircle2,   cls: 'text-emerald-300', dot: 'bg-emerald-400' },
+    ];
+
+    const PRIORITY = [
+      { id: 'high',   label: '높음', cls: 'text-rose-300 border-rose-900/60 bg-rose-950/30' },
+      { id: 'normal', label: '보통', cls: 'text-zinc-300 border-zinc-800 bg-zinc-900/40' },
+      { id: 'low',    label: '낮음', cls: 'text-zinc-500 border-zinc-800 bg-zinc-900/20' },
+    ];
+
+    const SERIF = '"Noto Serif KR", "Nanum Myeongjo", serif';
+    const STORAGE_KEY = 'grc-bm-tasks-v1';
+
+    // ---------- HELPERS ----------
+    const memberById = (id) => MEMBERS.find(m => m.id === id);
+    const brandById  = (id) => BRANDS.find(b => b.id === id);
+    const statusOf   = (id) => STATUS.find(s => s.id === id) || STATUS[0];
+    const priorityOf = (id) => PRIORITY.find(p => p.id === id) || PRIORITY[1];
+
+    const todayKST = () => {
+      const d = new Date();
+      const kst = new Date(d.getTime() + 9 * 3600000 - d.getTimezoneOffset() * 60000);
+      return kst.toISOString().slice(0, 10);
+    };
+    const fmtDate = (iso) => {
+      if (!iso) return null;
+      const d = new Date(iso + 'T00:00:00+09:00');
+      return `${d.getMonth()+1}/${d.getDate()}`;
+    };
+    const daysUntil = (iso) => {
+      if (!iso) return null;
+      const t = new Date(todayKST() + 'T00:00:00+09:00').getTime();
+      const d = new Date(iso + 'T00:00:00+09:00').getTime();
+      return Math.round((d - t) / 86400000);
+    };
+    const newId = () => 't_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+
+    // ============================================================
+    // MAIN APP
+    // ============================================================
+    function App() {
+      const [view, setView] = useState('brands');
+      const [tasks, setTasks] = useState([]);
+      const [loaded, setLoaded] = useState(false);
+      const [openBrand, setOpenBrand] = useState(null);
+      const [openMember, setOpenMember] = useState(null);
+      const [showAdd, setShowAdd] = useState(false);
+      const [editingTask, setEditingTask] = useState(null);
+      const [filterPart, setFilterPart] = useState('all');
+      const [showHidden, setShowHidden] = useState(false);
+
+      useEffect(() => {
+        try {
+          const raw = localStorage.getItem(STORAGE_KEY);
+          if (raw) setTasks(JSON.parse(raw));
+        } catch (e) { /* */ }
+        setLoaded(true);
+      }, []);
+
+      const persist = (next) => {
+        setTasks(next);
+        try { localStorage.setItem(STORAGE_KEY, JSON.stringify(next)); }
+        catch (e) { console.error(e); }
+      };
+
+      const addTask = (data) => {
+        const t = {
+          id: newId(),
+          brandId: data.brandId,
+          title: data.title,
+          description: data.description || '',
+          assigneeId: data.assigneeId,
+          dueDate: data.dueDate || '',
+          priority: data.priority || 'normal',
+          status: data.status || 'pending',
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        };
+        persist([t, ...tasks]);
+      };
+
+      const updateTask = (id, patch) => {
+        persist(tasks.map(t => t.id === id ? { ...t, ...patch, updatedAt: new Date().toISOString() } : t));
+      };
+
+      const deleteTask = (id) => persist(tasks.filter(t => t.id !== id));
+
+      const cycleStatus = (id) => {
+        const t = tasks.find(x => x.id === id);
+        if (!t) return;
+        const order = ['pending', 'in_progress', 'review', 'done'];
+        const idx = order.indexOf(t.status);
+        updateTask(id, { status: order[(idx + 1) % order.length] });
+      };
+
+      const stats = useMemo(() => {
+        const byBrand = {}, byBrandActive = {}, byMember = {}, byMemberActive = {};
+        tasks.forEach(t => {
+          byBrand[t.brandId] = (byBrand[t.brandId] || 0) + 1;
+          if (t.status !== 'done') byBrandActive[t.brandId] = (byBrandActive[t.brandId] || 0) + 1;
+          if (t.assigneeId) {
+            byMember[t.assigneeId] = (byMember[t.assigneeId] || 0) + 1;
+            if (t.status !== 'done') byMemberActive[t.assigneeId] = (byMemberActive[t.assigneeId] || 0) + 1;
+          }
+        });
+        const active = tasks.filter(t => t.status !== 'done').length;
+        const inProgress = tasks.filter(t => t.status === 'in_progress').length;
+        const overdue = tasks.filter(t => t.status !== 'done' && t.dueDate && daysUntil(t.dueDate) < 0).length;
+        return { byBrand, byBrandActive, byMember, byMemberActive, active, inProgress, overdue, total: tasks.length };
+      }, [tasks]);
+
+      if (!loaded) {
+        return (
+          <div className="min-h-screen bg-zinc-950 text-zinc-500 flex items-center justify-center">
+            <div className="text-xs tracking-widest uppercase">Loading…</div>
+          </div>
+        );
+      }
+
+      return (
+        <div className="min-h-screen bg-zinc-950 text-zinc-100">
+          {/* HEADER */}
+          <header className="border-b border-zinc-900 bg-zinc-950/95 backdrop-blur sticky top-0 z-20">
+            <div className="max-w-7xl mx-auto px-8 pt-7 pb-4 flex items-end justify-between flex-wrap gap-3">
+              <div>
+                <div className="flex items-baseline gap-3">
+                  <h1 className="text-2xl font-light tracking-[0.18em] text-zinc-50" style={{ fontFamily: SERIF }}>
+                    GRC<span className="mx-2 text-zinc-700">·</span><span className="text-amber-200/90">BM</span>
+                  </h1>
+                  <span className="text-[10px] text-zinc-600 tracking-[0.3em] uppercase">Dashboard</span>
+                </div>
+                <p className="text-xs text-zinc-500 mt-1 tracking-wide">Brand Management · 부서 운영 콘솔</p>
+              </div>
+              <div className="flex items-center gap-6 text-xs text-zinc-500">
+                <Stat label="전체" value={stats.total} />
+                <Divider />
+                <Stat label="진행중" value={stats.inProgress} highlight="text-sky-300" />
+                <Divider />
+                <Stat label="활성" value={stats.active} highlight="text-amber-200" />
+                {stats.overdue > 0 && (<><Divider /><Stat label="지연" value={stats.overdue} highlight="text-rose-300" /></>)}
+              </div>
+            </div>
+
+            <div className="max-w-7xl mx-auto px-8 flex items-center justify-between border-t border-zinc-900 flex-wrap gap-2">
+              <div className="flex">
+                <TabBtn active={view === 'brands'}  onClick={() => setView('brands')}  iconC={BriefcaseI} label="브랜드별" />
+                <TabBtn active={view === 'members'} onClick={() => setView('members')} iconC={UsersI}     label="담당자별" />
+              </div>
+              <div className="flex items-center gap-2 py-2">
+                {view === 'brands' && (<PartFilter value={filterPart} onChange={setFilterPart} />)}
+                <button
+                  onClick={() => setShowHidden(s => !s)}
+                  className={`text-[11px] px-3 py-1.5 rounded-full border transition ${
+                    showHidden
+                      ? 'border-zinc-700 bg-zinc-900 text-zinc-200'
+                      : 'border-zinc-900 text-zinc-500 hover:text-zinc-300 hover:border-zinc-800'
+                  }`}
+                >
+                  완료 {showHidden ? '표시' : '숨김'}
+                </button>
+                <button
+                  onClick={() => setShowAdd(true)}
+                  className="text-[11px] px-3 py-1.5 rounded-full border border-amber-200/30 bg-amber-200/5 text-amber-100 hover:bg-amber-200/10 transition flex items-center gap-1.5"
+                >
+                  <Plus size={12} strokeWidth={2.2} /> 새 작업
+                </button>
+              </div>
+            </div>
+          </header>
+
+          {/* MAIN */}
+          <main className="max-w-7xl mx-auto px-8 py-10">
+            {view === 'brands' ? (
+              <BrandsView
+                tasks={tasks}
+                stats={stats}
+                filterPart={filterPart}
+                showHidden={showHidden}
+                onOpenBrand={(id) => setOpenBrand(id)}
+              />
+            ) : (
+              <MembersView
+                tasks={tasks}
+                stats={stats}
+                showHidden={showHidden}
+                onOpenMember={(id) => setOpenMember(id)}
+              />
+            )}
+          </main>
+
+          <footer className="max-w-7xl mx-auto px-8 py-8 text-[10px] text-zinc-700 tracking-[0.2em] uppercase border-t border-zinc-900">
+            Grace International · BM Operations · v1
+          </footer>
+
+          {openBrand && (
+            <BrandModal
+              brandId={openBrand}
+              tasks={tasks.filter(t => t.brandId === openBrand)}
+              onClose={() => setOpenBrand(null)}
+              onAdd={addTask}
+              onUpdate={updateTask}
+              onDelete={deleteTask}
+              onCycleStatus={cycleStatus}
+              onEdit={(t) => setEditingTask(t)}
+            />
+          )}
+          {openMember && (
+            <MemberModal
+              memberId={openMember}
+              tasks={tasks.filter(t => t.assigneeId === openMember)}
+              onClose={() => setOpenMember(null)}
+              onUpdate={updateTask}
+              onDelete={deleteTask}
+              onCycleStatus={cycleStatus}
+              onEdit={(t) => setEditingTask(t)}
+            />
+          )}
+          {showAdd && (
+            <TaskFormModal
+              mode="create"
+              initialBrand={null}
+              onClose={() => setShowAdd(false)}
+              onSubmit={(data) => { addTask(data); setShowAdd(false); }}
+            />
+          )}
+          {editingTask && (
+            <TaskFormModal
+              mode="edit"
+              initial={editingTask}
+              onClose={() => setEditingTask(null)}
+              onSubmit={(data) => { updateTask(editingTask.id, data); setEditingTask(null); }}
+            />
+          )}
+        </div>
+      );
+    }
+
+    // ============================================================
+    // HEADER PIECES
+    // ============================================================
+    function Stat({ label, value, highlight = 'text-zinc-200' }) {
+      return (
+        <div className="flex items-baseline gap-1.5">
+          <span className="tracking-wider">{label}</span>
+          <span className={`text-base font-light tabular-nums ${highlight}`}>{value}</span>
+        </div>
+      );
+    }
+    function Divider() { return <span className="w-px h-3 bg-zinc-800"></span>; }
+
+    function TabBtn({ active, onClick, iconC: IC, label }) {
+      return (
+        <button
+          onClick={onClick}
+          className={`px-1 py-3.5 mr-8 text-sm flex items-center gap-2 border-b-2 transition tracking-wide ${
+            active ? 'border-amber-200/70 text-zinc-100' : 'border-transparent text-zinc-500 hover:text-zinc-300'
+          }`}
+        >
+          <IC size={14} strokeWidth={1.6} />
+          {label}
+        </button>
+      );
+    }
+
+    function PartFilter({ value, onChange }) {
+      const opts = [
+        { id: 'all', label: '전체' },
+        { id: 'part1', label: '파트1' },
+        { id: 'part2', label: '파트2' },
+        { id: 'part3', label: '파트3' },
+      ];
+      return (
+        <div className="flex border border-zinc-900 rounded-full overflow-hidden">
+          {opts.map(o => (
+            <button
+              key={o.id}
+              onClick={() => onChange(o.id)}
+              className={`text-[11px] px-3 py-1.5 transition ${value === o.id ? 'bg-zinc-900 text-zinc-100' : 'text-zinc-500 hover:text-zinc-300'}`}
+            >
+              {o.label}
+            </button>
+          ))}
+        </div>
+      );
+    }
+
+    // ============================================================
+    // BRANDS VIEW
+    // ============================================================
+    function BrandsView({ tasks, stats, filterPart, showHidden, onOpenBrand }) {
+      const visibleParts = filterPart === 'all' ? PARTS : PARTS.filter(p => p.id === filterPart);
+      return (
+        <div className="space-y-12">
+          {visibleParts.map(part => {
+            const partBrands = BRANDS.filter(b => b.part === part.id);
+            const partMembers = part.members.map(memberById);
+            return (
+              <section key={part.id}>
+                <PartHeader part={part} members={partMembers} />
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                  {partBrands.map(b => (
+                    <BrandCard
+                      key={b.id}
+                      brand={b}
+                      total={stats.byBrand[b.id] || 0}
+                      active={stats.byBrandActive[b.id] || 0}
+                      brandTasks={tasks.filter(t => t.brandId === b.id && (showHidden || t.status !== 'done'))}
+                      onClick={() => onOpenBrand(b.id)}
+                    />
+                  ))}
+                </div>
+              </section>
+            );
+          })}
+        </div>
+      );
+    }
+
+    function PartHeader({ part, members }) {
+      return (
+        <div className="mb-5 flex items-baseline justify-between border-b border-zinc-900 pb-3 flex-wrap gap-2">
+          <div className="flex items-baseline gap-3">
+            <span className="text-[10px] tracking-[0.3em] uppercase text-zinc-600">Section</span>
+            <h2 className="text-lg font-light text-zinc-100 tracking-wider" style={{ fontFamily: SERIF }}>
+              {part.label}
+            </h2>
+          </div>
+          <div className="flex items-center gap-2 text-[11px] text-zinc-500 flex-wrap">
+            <UsersI size={11} strokeWidth={1.5} />
+            {members.map((m, i) => (
+              <span key={m.id}>
+                {m.name} <span className="text-zinc-700">{m.title}</span>
+                {i < members.length - 1 && <span className="text-zinc-800 mx-1">·</span>}
+              </span>
+            ))}
+          </div>
+        </div>
+      );
+    }
+
+    function BrandCard({ brand, total, active, brandTasks, onClick }) {
+      const breakdown = STATUS.map(s => ({
+        ...s,
+        count: brandTasks.filter(t => t.status === s.id).length
+      }));
+      return (
+        <button
+          onClick={onClick}
+          className={`group relative text-left bg-zinc-900/40 border border-zinc-900 hover:border-zinc-700 hover:bg-zinc-900/70 transition rounded-sm p-4 min-h-[110px] flex flex-col justify-between ${brand.priority ? 'ring-1 ring-amber-200/10' : ''}`}
+        >
+          <div className="absolute top-2.5 right-2.5 flex items-center gap-1">
+            {brand.priority && (
+              <span title="중점 브랜드">
+                <StarI size={11} className="text-amber-200/80" strokeWidth={1.4} fillCurrent />
+              </span>
+            )}
+            {brand.active && <span title="신규/액티브" className="w-1.5 h-1.5 rounded-full bg-emerald-400/80"></span>}
+            {brand.region && (
+              <span className="text-[9px] tracking-widest text-zinc-500 border border-zinc-800 px-1 py-px rounded-sm">
+                {brand.region}
+              </span>
+            )}
+          </div>
+          <div>
+            <h3 className={`text-base mb-1 ${brand.priority ? 'text-zinc-50 font-medium' : 'text-zinc-200 font-normal'}`}>
+              {brand.name}
+            </h3>
+            <p className="text-[10px] text-zinc-600 tracking-wider uppercase">
+              {active > 0 ? `Active · ${active}` : 'No tasks'}
+            </p>
+          </div>
+          <div className="mt-3 flex items-center justify-between">
+            <div className="flex items-center gap-1.5">
+              {breakdown.filter(s => s.count > 0).map(s => (
+                <span key={s.id} className="flex items-center gap-1 text-[10px] text-zinc-500">
+                  <span className={`w-1.5 h-1.5 rounded-full ${s.dot}`}></span>
+                  {s.count}
+                </span>
+              ))}
+              {total === 0 && <span className="text-[10px] text-zinc-700 tracking-wider">—</span>}
+            </div>
+            <ChevronRight size={13} className="text-zinc-700 group-hover:text-zinc-400 group-hover:translate-x-0.5 transition" strokeWidth={1.5} />
+          </div>
+        </button>
+      );
+    }
+
+    // ============================================================
+    // MEMBERS VIEW
+    // ============================================================
+    function MembersView({ tasks, stats, showHidden, onOpenMember }) {
+      const head = MEMBERS.filter(m => m.group === 'head');
+      return (
+        <div className="space-y-10">
+          <section>
+            <SectionTitle text="Leadership" />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {head.map(m => (
+                <MemberCard
+                  key={m.id}
+                  member={m}
+                  total={stats.byMember[m.id] || 0}
+                  active={stats.byMemberActive[m.id] || 0}
+                  tasks={tasks.filter(t => t.assigneeId === m.id && (showHidden || t.status !== 'done'))}
+                  onClick={() => onOpenMember(m.id)}
+                  isLead
+                />
+              ))}
+            </div>
+          </section>
+          {PARTS.map(part => (
+            <section key={part.id}>
+              <SectionTitle text={part.label} />
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                {part.members.map(memberById).map(m => (
+                  <MemberCard
+                    key={m.id}
+                    member={m}
+                    total={stats.byMember[m.id] || 0}
+                    active={stats.byMemberActive[m.id] || 0}
+                    tasks={tasks.filter(t => t.assigneeId === m.id && (showHidden || t.status !== 'done'))}
+                    onClick={() => onOpenMember(m.id)}
+                  />
+                ))}
+              </div>
+            </section>
+          ))}
+        </div>
+      );
+    }
+
+    function SectionTitle({ text }) {
+      return (
+        <div className="mb-5 flex items-baseline gap-3 border-b border-zinc-900 pb-3">
+          <span className="text-[10px] tracking-[0.3em] uppercase text-zinc-600">Group</span>
+          <h2 className="text-lg font-light text-zinc-100 tracking-wider" style={{ fontFamily: SERIF }}>{text}</h2>
+        </div>
+      );
+    }
+
+    function MemberCard({ member, total, active, tasks, onClick, isLead }) {
+      const RoleIcon = isLead ? (member.role === '부서장' ? CrownI : ShieldI) : null;
+      const upcoming = tasks
+        .filter(t => t.dueDate && t.status !== 'done')
+        .sort((a, b) => a.dueDate.localeCompare(b.dueDate))
+        .slice(0, 3);
+      return (
+        <button
+          onClick={onClick}
+          className="group text-left bg-zinc-900/40 border border-zinc-900 hover:border-zinc-700 hover:bg-zinc-900/70 transition rounded-sm p-5"
+        >
+          <div className="flex items-start justify-between mb-3">
+            <div className="flex items-center gap-2.5">
+              {RoleIcon && <RoleIcon size={14} className="text-amber-200/60" strokeWidth={1.4} />}
+              <div>
+                <div className="flex items-baseline gap-2">
+                  <h3 className="text-base text-zinc-100 font-medium">{member.name}</h3>
+                  <span className="text-xs text-zinc-500">{member.title}</span>
+                </div>
+                <p className="text-[10px] text-zinc-600 tracking-widest uppercase mt-0.5">{member.role}</p>
+              </div>
+            </div>
+            <div className="text-right">
+              <div className="text-2xl font-extralight text-zinc-100 tabular-nums">{active}</div>
+              <div className="text-[9px] text-zinc-600 tracking-widest uppercase">Active</div>
+            </div>
+          </div>
+          <div className="border-t border-zinc-900 pt-3 min-h-[60px]">
+            {upcoming.length > 0 ? (
+              <ul className="space-y-1.5">
+                {upcoming.map(t => {
+                  const days = daysUntil(t.dueDate);
+                  return (
+                    <li key={t.id} className="flex items-center justify-between gap-2 text-xs">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className={`w-1 h-1 rounded-full flex-shrink-0 ${statusOf(t.status).dot}`}></span>
+                        <span className="text-zinc-400 truncate">{t.title}</span>
+                      </div>
+                      <span className={`text-[10px] flex-shrink-0 tabular-nums ${days < 0 ? 'text-rose-400' : days <= 3 ? 'text-amber-300' : 'text-zinc-600'}`}>
+                        {fmtDate(t.dueDate)}
+                      </span>
+                    </li>
+                  );
+                })}
+              </ul>
+            ) : (
+              <p className="text-[11px] text-zinc-700 tracking-wider">예정 작업 없음</p>
+            )}
+          </div>
+          <div className="mt-3 flex items-center justify-between text-[10px] text-zinc-600 tracking-wider">
+            <span>전체 {total}건</span>
+            <span className="flex items-center gap-1 group-hover:text-zinc-400 transition">
+              상세보기 <ArrowUpRight size={11} strokeWidth={1.4} />
+            </span>
+          </div>
+        </button>
+      );
+    }
+
+    // ============================================================
+    // BRAND MODAL
+    // ============================================================
+    function BrandModal({ brandId, tasks, onClose, onAdd, onCycleStatus, onDelete, onEdit }) {
+      const brand = brandById(brandId);
+      const [showForm, setShowForm] = useState(tasks.length === 0);
+      const sorted = [...tasks].sort((a, b) => {
+        if ((a.status === 'done') !== (b.status === 'done')) return a.status === 'done' ? 1 : -1;
+        if (a.dueDate && b.dueDate) return a.dueDate.localeCompare(b.dueDate);
+        if (a.dueDate) return -1;
+        if (b.dueDate) return 1;
+        return b.createdAt.localeCompare(a.createdAt);
+      });
+      return (
+        <Modal onClose={onClose}>
+          <div className="flex items-center justify-between px-8 py-6 border-b border-zinc-900">
+            <div>
+              <div className="flex items-center gap-2 text-[10px] text-zinc-600 tracking-[0.3em] uppercase mb-1">
+                <BriefcaseI size={10} strokeWidth={1.5} />
+                Brand · {PARTS.find(p => p.id === brand.part)?.label}
+              </div>
+              <div className="flex items-center gap-3">
+                <h2 className="text-2xl font-light text-zinc-50 tracking-wide" style={{ fontFamily: SERIF }}>
+                  {brand.name}
+                </h2>
+                {brand.priority && <StarI size={14} className="text-amber-200/80" strokeWidth={1.4} fillCurrent />}
+                {brand.active && <span className="w-1.5 h-1.5 rounded-full bg-emerald-400/80"></span>}
+                {brand.region && (
+                  <span className="text-[10px] tracking-widest text-zinc-500 border border-zinc-800 px-1.5 py-0.5 rounded-sm">
+                    {brand.region}
+                  </span>
+                )}
+              </div>
+            </div>
+            <button onClick={onClose} className="text-zinc-500 hover:text-zinc-200 transition">
+              <XIcon size={18} strokeWidth={1.5} />
+            </button>
+          </div>
+          <div className="px-8 py-6 overflow-y-auto" style={{ maxHeight: '60vh' }}>
+            {sorted.length === 0 && !showForm && (
+              <div className="text-center py-12">
+                <p className="text-zinc-600 text-sm mb-4">등록된 작업이 없습니다</p>
+                <button
+                  onClick={() => setShowForm(true)}
+                  className="text-xs px-4 py-2 rounded-full border border-amber-200/30 bg-amber-200/5 text-amber-100 hover:bg-amber-200/10 transition"
+                >
+                  + 첫 작업 추가
+                </button>
+              </div>
+            )}
+            {sorted.length > 0 && (
+              <ul className="space-y-2 mb-6">
+                {sorted.map(t => (
+                  <TaskRow
+                    key={t.id}
+                    task={t}
+                    showBrand={false}
+                    onCycleStatus={() => onCycleStatus(t.id)}
+                    onEdit={() => onEdit(t)}
+                    onDelete={() => { if (confirm('삭제하시겠습니까?')) onDelete(t.id); }}
+                  />
+                ))}
+              </ul>
+            )}
+            {showForm ? (
+              <InlineTaskForm
+                brandId={brand.id}
+                onCancel={() => setShowForm(false)}
+                onSubmit={(data) => { onAdd(data); setShowForm(false); }}
+              />
+            ) : (
+              <button
+                onClick={() => setShowForm(true)}
+                className="w-full border border-dashed border-zinc-800 hover:border-zinc-700 rounded-sm py-3 text-sm text-zinc-500 hover:text-zinc-300 transition flex items-center justify-center gap-2"
+              >
+                <Plus size={14} strokeWidth={1.5} /> 새 작업 추가
+              </button>
+            )}
+          </div>
+        </Modal>
+      );
+    }
+
+    // ============================================================
+    // MEMBER MODAL
+    // ============================================================
+    function MemberModal({ memberId, tasks, onClose, onCycleStatus, onDelete, onEdit }) {
+      const m = memberById(memberId);
+      const [tab, setTab] = useState('active');
+      const filtered = tasks.filter(t => tab === 'done' ? t.status === 'done' : t.status !== 'done');
+      const sorted = [...filtered].sort((a, b) => {
+        if (a.dueDate && b.dueDate) return a.dueDate.localeCompare(b.dueDate);
+        if (a.dueDate) return -1;
+        if (b.dueDate) return 1;
+        return b.createdAt.localeCompare(a.createdAt);
+      });
+      const activeCount = tasks.filter(t => t.status !== 'done').length;
+      const doneCount = tasks.filter(t => t.status === 'done').length;
+      return (
+        <Modal onClose={onClose}>
+          <div className="flex items-center justify-between px-8 py-6 border-b border-zinc-900">
+            <div>
+              <div className="flex items-center gap-2 text-[10px] text-zinc-600 tracking-[0.3em] uppercase mb-1">
+                <UsersI size={10} strokeWidth={1.5} />
+                {m.role}
+              </div>
+              <div className="flex items-baseline gap-3">
+                <h2 className="text-2xl font-light text-zinc-50 tracking-wide" style={{ fontFamily: SERIF }}>{m.name}</h2>
+                <span className="text-sm text-zinc-500">{m.title}</span>
+              </div>
+            </div>
+            <button onClick={onClose} className="text-zinc-500 hover:text-zinc-200 transition">
+              <XIcon size={18} strokeWidth={1.5} />
+            </button>
+          </div>
+          <div className="px-8 pt-4 border-b border-zinc-900 flex gap-6">
+            <button
+              onClick={() => setTab('active')}
+              className={`pb-3 text-sm tracking-wide border-b-2 transition ${tab === 'active' ? 'border-amber-200/70 text-zinc-100' : 'border-transparent text-zinc-500 hover:text-zinc-300'}`}
+            >
+              진행 작업 <span className="text-zinc-600 ml-1 tabular-nums">{activeCount}</span>
+            </button>
+            <button
+              onClick={() => setTab('done')}
+              className={`pb-3 text-sm tracking-wide border-b-2 transition ${tab === 'done' ? 'border-amber-200/70 text-zinc-100' : 'border-transparent text-zinc-500 hover:text-zinc-300'}`}
+            >
+              완료 <span className="text-zinc-600 ml-1 tabular-nums">{doneCount}</span>
+            </button>
+          </div>
+          <div className="px-8 py-6 overflow-y-auto" style={{ maxHeight: '60vh' }}>
+            {sorted.length === 0 ? (
+              <div className="text-center py-12">
+                <p className="text-zinc-600 text-sm">{tab === 'active' ? '진행 중인 작업이 없습니다' : '완료된 작업이 없습니다'}</p>
+              </div>
+            ) : (
+              <ul className="space-y-2">
+                {sorted.map(t => (
+                  <TaskRow
+                    key={t.id}
+                    task={t}
+                    showBrand={true}
+                    onCycleStatus={() => onCycleStatus(t.id)}
+                    onEdit={() => onEdit(t)}
+                    onDelete={() => { if (confirm('삭제하시겠습니까?')) onDelete(t.id); }}
+                  />
+                ))}
+              </ul>
+            )}
+          </div>
+        </Modal>
+      );
+    }
+
+    // ============================================================
+    // TASK ROW
+    // ============================================================
+    function TaskRow({ task, showBrand, onCycleStatus, onEdit, onDelete }) {
+      const s = statusOf(task.status);
+      const p = priorityOf(task.priority);
+      const a = memberById(task.assigneeId);
+      const b = brandById(task.brandId);
+      const days = task.dueDate ? daysUntil(task.dueDate) : null;
+      const isDone = task.status === 'done';
+      const StatusIcon = s.icon;
+      return (
+        <li className={`group flex items-start gap-3 p-3 rounded-sm border border-zinc-900 hover:border-zinc-800 hover:bg-zinc-900/40 transition ${isDone ? 'opacity-50' : ''}`}>
+          <button onClick={onCycleStatus} className={`mt-0.5 flex-shrink-0 ${s.cls} hover:scale-110 transition`} title={`상태 변경: ${s.label}`}>
+            <StatusIcon size={16} strokeWidth={1.5} />
+          </button>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 mb-1 flex-wrap">
+              {showBrand && b && (
+                <span className="text-[10px] px-1.5 py-0.5 rounded-sm bg-zinc-900 text-zinc-400 tracking-wider">{b.name}</span>
+              )}
+              <span className={`text-sm ${isDone ? 'line-through text-zinc-600' : 'text-zinc-100'}`}>{task.title}</span>
+              {task.priority === 'high' && (
+                <span className={`text-[9px] px-1.5 py-0.5 rounded-sm border tracking-wider ${p.cls}`}>{p.label}</span>
+              )}
+            </div>
+            {task.description && (<p className="text-xs text-zinc-500 mt-1 leading-relaxed">{task.description}</p>)}
+            <div className="flex items-center gap-3 mt-1.5 text-[10px] text-zinc-600 tracking-wider flex-wrap">
+              <span className={`flex items-center gap-1 ${s.cls}`}>
+                <span className={`w-1 h-1 rounded-full ${s.dot}`}></span> {s.label}
+              </span>
+              {a && (
+                <span className="flex items-center gap-1 text-zinc-500">
+                  <UsersI size={9} strokeWidth={1.5} /> {a.name} {a.title}
+                </span>
+              )}
+              {task.dueDate && (
+                <span className={`flex items-center gap-1 tabular-nums ${isDone ? 'text-zinc-700' : days < 0 ? 'text-rose-400' : days <= 3 ? 'text-amber-300' : 'text-zinc-500'}`}>
+                  <CalendarI size={9} strokeWidth={1.5} />
+                  {fmtDate(task.dueDate)}
+                  {!isDone && days !== null && (
+                    <span className="ml-0.5">({days < 0 ? `${Math.abs(days)}일 지연` : days === 0 ? '오늘' : `D-${days}`})</span>
+                  )}
+                </span>
+              )}
+            </div>
+          </div>
+          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition flex-shrink-0">
+            <button onClick={onEdit} className="p-1 text-zinc-500 hover:text-zinc-200 transition" title="수정">
+              <Edit3 size={13} strokeWidth={1.5} />
+            </button>
+            <button onClick={onDelete} className="p-1 text-zinc-500 hover:text-rose-400 transition" title="삭제">
+              <Trash2 size={13} strokeWidth={1.5} />
+            </button>
+          </div>
+        </li>
+      );
+    }
+
+    // ============================================================
+    // INLINE FORM
+    // ============================================================
+    function InlineTaskForm({ brandId, onSubmit, onCancel }) {
+      const [title, setTitle] = useState('');
+      const [description, setDescription] = useState('');
+      const [assigneeId, setAssigneeId] = useState('');
+      const [dueDate, setDueDate] = useState('');
+      const [priority, setPriority] = useState('normal');
+      const [status, setStatus] = useState('pending');
+      const submit = (e) => {
+        e.preventDefault();
+        if (!title.trim() || !assigneeId) return;
+        onSubmit({ brandId, title: title.trim(), description: description.trim(), assigneeId, dueDate, priority, status });
+      };
+      return (
+        <form onSubmit={submit} className="border border-zinc-800 rounded-sm p-4 bg-zinc-900/30 space-y-3">
+          <input
+            type="text" placeholder="작업 제목 *" value={title} onChange={e => setTitle(e.target.value)} autoFocus
+            className="w-full bg-transparent text-zinc-100 placeholder-zinc-600 text-sm py-2 border-b border-zinc-800 focus:border-amber-200/40 outline-none transition"
+          />
+          <textarea
+            placeholder="세부 내용 (선택)" value={description} onChange={e => setDescription(e.target.value)} rows={2}
+            className="w-full bg-transparent text-zinc-300 placeholder-zinc-600 text-xs py-2 border-b border-zinc-800 focus:border-amber-200/40 outline-none transition resize-none leading-relaxed"
+          />
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <FormField label="담당자 *"><AssigneeSelect value={assigneeId} onChange={setAssigneeId} /></FormField>
+            <FormField label="마감">
+              <input type="date" value={dueDate} onChange={e => setDueDate(e.target.value)}
+                className="w-full bg-zinc-950 border border-zinc-800 rounded-sm px-2 py-1.5 text-xs text-zinc-200 focus:border-amber-200/40 outline-none transition"
+              />
+            </FormField>
+            <FormField label="우선순위">
+              <select value={priority} onChange={e => setPriority(e.target.value)}
+                className="w-full bg-zinc-950 border border-zinc-800 rounded-sm px-2 py-1.5 text-xs text-zinc-200 focus:border-amber-200/40 outline-none transition">
+                {PRIORITY.map(p => <option key={p.id} value={p.id}>{p.label}</option>)}
+              </select>
+            </FormField>
+          </div>
+          <div className="flex items-center justify-between pt-2 flex-wrap gap-2">
+            <div className="flex gap-1.5 flex-wrap">
+              {STATUS.map(s => (
+                <button key={s.id} type="button" onClick={() => setStatus(s.id)}
+                  className={`text-[10px] px-2 py-1 rounded-sm border transition tracking-wider ${status === s.id ? 'border-zinc-700 bg-zinc-900 text-zinc-100' : 'border-zinc-900 text-zinc-500 hover:text-zinc-300'}`}>
+                  <span className={`inline-block w-1 h-1 rounded-full mr-1.5 ${s.dot}`}></span>
+                  {s.label}
+                </button>
+              ))}
+            </div>
+            <div className="flex gap-2">
+              <button type="button" onClick={onCancel} className="text-xs px-3 py-1.5 text-zinc-500 hover:text-zinc-300 transition">취소</button>
+              <button type="submit" disabled={!title.trim() || !assigneeId}
+                className="text-xs px-4 py-1.5 rounded-sm border border-amber-200/30 bg-amber-200/5 text-amber-100 hover:bg-amber-200/10 disabled:opacity-30 disabled:cursor-not-allowed transition">
+                등록
+              </button>
+            </div>
+          </div>
+        </form>
+      );
+    }
+
+    function FormField({ label, children }) {
+      return (
+        <div>
+          <label className="text-[10px] text-zinc-600 tracking-widest uppercase mb-1 block">{label}</label>
+          {children}
+        </div>
+      );
+    }
+
+    // ============================================================
+    // ASSIGNEE SELECT
+    // ============================================================
+    function AssigneeSelect({ value, onChange }) {
+      return (
+        <select value={value} onChange={e => onChange(e.target.value)}
+          className="w-full bg-zinc-950 border border-zinc-800 rounded-sm px-2 py-1.5 text-xs text-zinc-200 focus:border-amber-200/40 outline-none transition">
+          <option value="">— 담당자 선택 —</option>
+          <optgroup label="Leadership">
+            {MEMBERS.filter(m => m.group === 'head').map(m => (
+              <option key={m.id} value={m.id}>{m.name} {m.title} ({m.role})</option>
+            ))}
+          </optgroup>
+          {PARTS.map(part => (
+            <optgroup key={part.id} label={part.label}>
+              {part.members.map(memberById).map(m => (
+                <option key={m.id} value={m.id}>{m.name} {m.title}</option>
+              ))}
+            </optgroup>
+          ))}
+        </select>
+      );
+    }
+
+    // ============================================================
+    // FULL TASK FORM MODAL
+    // ============================================================
+    function TaskFormModal({ mode, initial, initialBrand, onClose, onSubmit }) {
+      const [title, setTitle] = useState(initial?.title || '');
+      const [description, setDescription] = useState(initial?.description || '');
+      const [brandId, setBrandId] = useState(initial?.brandId || initialBrand || '');
+      const [assigneeId, setAssigneeId] = useState(initial?.assigneeId || '');
+      const [dueDate, setDueDate] = useState(initial?.dueDate || '');
+      const [priority, setPriority] = useState(initial?.priority || 'normal');
+      const [status, setStatus] = useState(initial?.status || 'pending');
+      const submit = (e) => {
+        e.preventDefault();
+        if (!title.trim() || !brandId || !assigneeId) return;
+        onSubmit({ title: title.trim(), description: description.trim(), brandId, assigneeId, dueDate, priority, status });
+      };
+      return (
+        <Modal onClose={onClose}>
+          <div className="px-8 py-6 border-b border-zinc-900">
+            <div className="text-[10px] text-zinc-600 tracking-[0.3em] uppercase mb-1">
+              {mode === 'create' ? 'New Task' : 'Edit Task'}
+            </div>
+            <h2 className="text-xl font-light text-zinc-50 tracking-wide" style={{ fontFamily: SERIF }}>
+              {mode === 'create' ? '새 작업 추가' : '작업 수정'}
+            </h2>
+          </div>
+          <form onSubmit={submit} className="px-8 py-6 space-y-5 overflow-y-auto" style={{ maxHeight: '70vh' }}>
+            <FormField label="작업 제목 *">
+              <input type="text" value={title} onChange={e => setTitle(e.target.value)} autoFocus
+                className="w-full bg-transparent text-zinc-100 placeholder-zinc-600 text-sm py-2 border-b border-zinc-800 focus:border-amber-200/40 outline-none transition"
+                placeholder="예: Q3 리뉴얼 패키지 시안 컨펌"
+              />
+            </FormField>
+            <FormField label="브랜드 *">
+              <select value={brandId} onChange={e => setBrandId(e.target.value)}
+                className="w-full bg-zinc-950 border border-zinc-800 rounded-sm px-3 py-2 text-sm text-zinc-200 focus:border-amber-200/40 outline-none transition">
+                <option value="">— 브랜드 선택 —</option>
+                {PARTS.map(part => (
+                  <optgroup key={part.id} label={part.label}>
+                    {BRANDS.filter(b => b.part === part.id).map(b => (
+                      <option key={b.id} value={b.id}>
+                        {b.name}{b.priority ? ' ★' : ''}{b.region ? ` (${b.region})` : ''}
+                      </option>
+                    ))}
+                  </optgroup>
+                ))}
+              </select>
+            </FormField>
+            <FormField label="세부 내용">
+              <textarea value={description} onChange={e => setDescription(e.target.value)} rows={3}
+                className="w-full bg-zinc-950 border border-zinc-800 rounded-sm px-3 py-2 text-sm text-zinc-200 placeholder-zinc-600 focus:border-amber-200/40 outline-none transition leading-relaxed"
+                placeholder="배경, 컨텍스트, 결과물 형태 등"
+              />
+            </FormField>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <FormField label="담당자 *"><AssigneeSelect value={assigneeId} onChange={setAssigneeId} /></FormField>
+              <FormField label="마감일">
+                <input type="date" value={dueDate} onChange={e => setDueDate(e.target.value)}
+                  className="w-full bg-zinc-950 border border-zinc-800 rounded-sm px-2 py-1.5 text-xs text-zinc-200 focus:border-amber-200/40 outline-none transition"
+                />
+              </FormField>
+              <FormField label="우선순위">
+                <select value={priority} onChange={e => setPriority(e.target.value)}
+                  className="w-full bg-zinc-950 border border-zinc-800 rounded-sm px-2 py-1.5 text-xs text-zinc-200 focus:border-amber-200/40 outline-none transition">
+                  {PRIORITY.map(p => <option key={p.id} value={p.id}>{p.label}</option>)}
+                </select>
+              </FormField>
+            </div>
+            <FormField label="상태">
+              <div className="flex gap-1.5 flex-wrap">
+                {STATUS.map(s => (
+                  <button key={s.id} type="button" onClick={() => setStatus(s.id)}
+                    className={`text-xs px-3 py-1.5 rounded-sm border transition tracking-wider ${status === s.id ? 'border-zinc-700 bg-zinc-900 text-zinc-100' : 'border-zinc-900 text-zinc-500 hover:text-zinc-300'}`}>
+                    <span className={`inline-block w-1.5 h-1.5 rounded-full mr-2 ${s.dot}`}></span>
+                    {s.label}
+                  </button>
+                ))}
+              </div>
+            </FormField>
+            <div className="flex items-center justify-end gap-3 pt-4 border-t border-zinc-900">
+              <button type="button" onClick={onClose} className="text-sm px-4 py-2 text-zinc-500 hover:text-zinc-300 transition">취소</button>
+              <button type="submit" disabled={!title.trim() || !brandId || !assigneeId}
+                className="text-sm px-5 py-2 rounded-sm border border-amber-200/30 bg-amber-200/5 text-amber-100 hover:bg-amber-200/10 disabled:opacity-30 disabled:cursor-not-allowed transition">
+                {mode === 'create' ? '작업 등록' : '저장'}
+              </button>
+            </div>
+          </form>
+        </Modal>
+      );
+    }
+
+    // ============================================================
+    // MODAL SHELL
+    // ============================================================
+    function Modal({ children, onClose }) {
+      useEffect(() => {
+        const onKey = (e) => { if (e.key === 'Escape') onClose(); };
+        window.addEventListener('keydown', onKey);
+        document.body.style.overflow = 'hidden';
+        return () => {
+          window.removeEventListener('keydown', onKey);
+          document.body.style.overflow = '';
+        };
+      }, [onClose]);
+      return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4" onClick={onClose}>
+          <div className="w-full max-w-3xl bg-zinc-950 border border-zinc-800 rounded-sm shadow-2xl"
+               onClick={e => e.stopPropagation()}>
+            {children}
+          </div>
+        </div>
+      );
+    }
+
+    // Mount
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<App />);
+  </script>
+</body>
+</html>
