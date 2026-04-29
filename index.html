@@ -68,7 +68,11 @@
       radial-gradient(ellipse at 70% 25%, rgba(255,255,255,0.15) 0%, transparent 55%),
       radial-gradient(ellipse at 20% 80%, rgba(0,0,0,0.25) 0%, transparent 50%); pointer-events: none; }
     /* Mentions & comments */
-    .mention-chip { display: inline-block; padding: 0 4px; border-radius: 3px; background: rgba(37,99,235,0.10); color: #2563eb; font-weight: 500; font-size: 0.95em; line-height: 1.4; transition: background 0.15s ease; } .mention-chip:hover { background: rgba(37,99,235,0.18); }
+    .mention-chip { display: inline-block; padding: 0 4px; border-radius: 3px; background: rgba(37,99,235,0.10); color: #2563eb; font-weight: 500; font-size: 0.95em; line-height: 1.4; transition: background 0.15s ease; user-select: all; }
+    .mention-chip:hover { background: rgba(37,99,235,0.18); }
+    .rich-input { white-space: pre-wrap; word-break: break-word; outline: none; }
+    .rich-input:empty:before { content: attr(data-placeholder); color: var(--text-faint); pointer-events: none; }
+    .rich-input .mention-chip { cursor: default; }
     .mention-popup { position: absolute; background: white; border: 1px solid var(--border-strong); border-radius: 6px; box-shadow: 0 8px 24px rgba(30,39,70,0.15); z-index: 100; min-width: 220px; max-height: 220px; overflow-y: auto; padding: 4px; }
     .mention-popup-item { display: flex; align-items: center; gap: 8px; width: 100%; text-align: left; padding: 7px 10px; background: transparent; border: none; cursor: pointer; border-radius: 4px; font-size: 13px; color: var(--ink); }
     .mention-popup-item:hover, .mention-popup-item.active { background: var(--surface-2); }
@@ -1106,26 +1110,79 @@
     /* ============================================================
        TASK ROW
        ============================================================ */
-    // Textarea with @ mention autocomplete. Stores mentions as @[name](id).
-    function MentionInput({ value, onChange, placeholder, rows = 3, autoFocus, multiline = true, className = '', style = {} }) {
+    // Rich contentEditable editor with @-mention autocomplete.
+    // Internal value format remains "@[이름](id)" for storage compatibility.
+    // Mentions are rendered as styled chips inline as the user types.
+    function MentionInput({ value, onChange, placeholder, rows = 3, autoFocus, className = '', style = {} }) {
       const ref = useRef(null);
-      const [popup, setPopup] = useState(null); // { query, top, left, idx }
+      const [popup, setPopup] = useState(null); // { query, idx }
+      useEffect(() => { if (autoFocus && ref.current) { ref.current.focus(); } }, []);
 
-      const updatePopupFromCursor = () => {
+      // Convert internal format -> HTML for display
+      const escape = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+      const toHTML = (txt) => {
+        if (!txt) return '';
+        const parts = txt.split(/(@\[[^\]]+\]\([a-z_]+\))/g);
+        return parts.map(p => {
+          const mm = p.match(/^@\[([^\]]+)\]\(([a-z_]+)\)$/);
+          if (mm) {
+            return `<span class="mention-chip" contenteditable="false" data-mention-id="${mm[2]}">@${escape(mm[1])}</span>`;
+          }
+          return escape(p).replace(/\n/g, '<br>');
+        }).join('');
+      };
+
+      // Convert DOM -> internal format
+      const fromDOM = (el) => {
+        let out = '';
+        const walk = (node) => {
+          if (node.nodeType === 3) { out += node.nodeValue; return; }
+          if (node.nodeType !== 1) return;
+          if (node.classList && node.classList.contains('mention-chip')) {
+            const id = node.getAttribute('data-mention-id');
+            const name = (node.textContent || '').replace(/^@/, '');
+            out += `@[${name}](${id})`;
+            return;
+          }
+          if (node.tagName === 'BR') { out += '\n'; return; }
+          if (node.tagName === 'DIV' || node.tagName === 'P') {
+            if (out && !out.endsWith('\n')) out += '\n';
+            node.childNodes.forEach(walk);
+            return;
+          }
+          node.childNodes.forEach(walk);
+        };
+        el.childNodes.forEach(walk);
+        return out;
+      };
+
+      // Initialize / sync DOM when external value changes (only if differs from current)
+      useEffect(() => {
         const el = ref.current; if (!el) return;
-        const cursor = el.selectionStart || 0;
-        const before = (el.value || '').slice(0, cursor);
+        const current = fromDOM(el);
+        if (current !== (value || '')) {
+          el.innerHTML = toHTML(value || '');
+        }
+        // eslint-disable-next-line
+      }, [value]);
+
+      // After every input, save selection, recompute, write back, restore selection
+      const handleInput = () => {
+        const el = ref.current; if (!el) return;
+        const txt = fromDOM(el);
+        onChange(txt);
+        // Recompute mention popup state from current caret position
+        const sel = window.getSelection();
+        if (!sel || sel.rangeCount === 0) { setPopup(null); return; }
+        const range = sel.getRangeAt(0);
+        if (!el.contains(range.startContainer)) { setPopup(null); return; }
+        // Look at text in current text node up to caret
+        const node = range.startContainer;
+        if (node.nodeType !== 3) { setPopup(null); return; }
+        const before = node.nodeValue.slice(0, range.startOffset);
         const m = before.match(/@([\u3131-\uD79D\w가-힣]*)$/);
         if (!m) { setPopup(null); return; }
-        const rect = el.getBoundingClientRect();
-        const parentRect = el.parentElement.getBoundingClientRect();
-        // Place popup under the textarea, left aligned with current end of input
-        setPopup({
-          query: m[1] || '',
-          top: rect.bottom - parentRect.top + 2,
-          left: 0,
-          idx: 0,
-        });
+        setPopup({ query: m[1] || '', idx: 0 });
       };
 
       const filtered = popup ? MEMBERS.filter(mm => {
@@ -1136,53 +1193,80 @@
 
       const insertMention = (member) => {
         const el = ref.current; if (!el) return;
-        const cursor = el.selectionStart || 0;
-        const before = (el.value || '').slice(0, cursor);
-        const after = (el.value || '').slice(cursor);
-        const replacement = `@[${member.name}](${member.id}) `;
-        const newBefore = before.replace(/@[\u3131-\uD79D\w가-힣]*$/, replacement);
-        const newVal = newBefore + after;
-        onChange(newVal);
+        const sel = window.getSelection();
+        if (!sel || sel.rangeCount === 0) return;
+        const range = sel.getRangeAt(0);
+        const node = range.startContainer;
+        if (node.nodeType !== 3) return;
+
+        // Replace the "@query" with chip + space
+        const before = node.nodeValue.slice(0, range.startOffset);
+        const after = node.nodeValue.slice(range.startOffset);
+        const m = before.match(/@([\u3131-\uD79D\w가-힣]*)$/);
+        if (!m) return;
+        const newBefore = before.slice(0, before.length - m[0].length);
+
+        const parent = node.parentNode;
+        const beforeNode = document.createTextNode(newBefore);
+        const chip = document.createElement('span');
+        chip.className = 'mention-chip';
+        chip.setAttribute('contenteditable', 'false');
+        chip.setAttribute('data-mention-id', member.id);
+        chip.textContent = `@${member.name}`;
+        const spaceNode = document.createTextNode('\u00A0');
+        const afterNode = document.createTextNode(after);
+
+        parent.insertBefore(beforeNode, node);
+        parent.insertBefore(chip, node);
+        parent.insertBefore(spaceNode, node);
+        parent.insertBefore(afterNode, node);
+        parent.removeChild(node);
+
+        // Caret after the space
+        const r = document.createRange();
+        r.setStart(spaceNode, 1);
+        r.collapse(true);
+        sel.removeAllRanges();
+        sel.addRange(r);
+
         setPopup(null);
-        // Restore cursor after replacement
-        setTimeout(() => {
-          if (ref.current) {
-            const pos = newBefore.length;
-            ref.current.focus();
-            ref.current.setSelectionRange(pos, pos);
-          }
-        }, 0);
+        // Trigger onChange with updated value
+        onChange(fromDOM(ref.current));
       };
 
       const onKeyDown = (e) => {
-        if (!popup || filtered.length === 0) return;
-        if (e.key === 'ArrowDown') { e.preventDefault(); setPopup(p => ({...p, idx: (p.idx + 1) % filtered.length})); }
-        else if (e.key === 'ArrowUp') { e.preventDefault(); setPopup(p => ({...p, idx: (p.idx - 1 + filtered.length) % filtered.length})); }
-        else if (e.key === 'Enter' || e.key === 'Tab') { e.preventDefault(); insertMention(filtered[popup.idx]); }
-        else if (e.key === 'Escape') { setPopup(null); }
+        if (popup && filtered.length > 0) {
+          if (e.key === 'ArrowDown') { e.preventDefault(); setPopup(p => ({...p, idx: (p.idx + 1) % filtered.length})); return; }
+          if (e.key === 'ArrowUp')   { e.preventDefault(); setPopup(p => ({...p, idx: (p.idx - 1 + filtered.length) % filtered.length})); return; }
+          if (e.key === 'Enter' || e.key === 'Tab') { e.preventDefault(); insertMention(filtered[popup.idx]); return; }
+          if (e.key === 'Escape') { setPopup(null); return; }
+        }
       };
 
-      const Comp = multiline ? 'textarea' : 'input';
-      const compProps = multiline ? { rows } : { type: 'text' };
+      // Plain-text paste
+      const onPaste = (e) => {
+        e.preventDefault();
+        const text = (e.clipboardData || window.clipboardData).getData('text/plain');
+        document.execCommand('insertText', false, text);
+      };
 
       return (
         <div className="relative">
-          <Comp
+          <div
             ref={ref}
-            value={value}
-            onChange={(e) => { onChange(e.target.value); requestAnimationFrame(updatePopupFromCursor); }}
+            contentEditable
+            suppressContentEditableWarning
+            onInput={handleInput}
             onKeyDown={onKeyDown}
-            onClick={updatePopupFromCursor}
-            onKeyUp={updatePopupFromCursor}
+            onPaste={onPaste}
             onBlur={() => setTimeout(() => setPopup(null), 150)}
-            placeholder={placeholder}
+            data-placeholder={placeholder}
             autoFocus={autoFocus}
-            className={className}
-            style={style}
-            {...compProps}
+            className={`rich-input ${className}`}
+            style={{ minHeight: rows ? (rows * 1.5 + 0.4) + 'em' : 'auto', ...style }}
           />
           {popup && filtered.length > 0 && (
-            <div className="mention-popup" style={{top: popup.top, left: popup.left}}>
+            <div className="mention-popup" style={{top: '100%', left: 0, marginTop: '2px'}}>
               {filtered.map((m, i) => (
                 <button key={m.id} type="button"
                         className={`mention-popup-item ${i === popup.idx ? 'active' : ''}`}
