@@ -338,8 +338,9 @@
             )}
           </main>
 
-          <footer className="max-w-6xl mx-auto px-8 py-10 text-xs tracking-[0.25em] uppercase border-t" style={{color:'var(--text-faint)', borderColor:'var(--border)'}}>
-            Grace International · Brand Management · Operations
+          <footer className="max-w-6xl mx-auto px-8 py-10 text-xs border-t flex items-center justify-between flex-wrap gap-2" style={{color:'var(--text-faint)', borderColor:'var(--border)'}}>
+            <span className="tracking-[0.25em] uppercase">Grace International · Brand Management · Operations</span>
+            <span className="tracking-wider">개발자 : BM부 이동현 차장</span>
           </footer>
 
           {openBrand && (
@@ -382,41 +383,30 @@
        HEADER (Grace-style brand bar)
        ============================================================ */
     function Header({ view, setView }) {
-      const [scrolled, setScrolled] = useState(false);
-      useEffect(() => {
-        const onScroll = () => setScrolled(window.scrollY > 24);
-        window.addEventListener('scroll', onScroll, { passive: true });
-        onScroll();
-        return () => window.removeEventListener('scroll', onScroll);
-      }, []);
-
       const reload = () => { window.scrollTo({top:0, behavior:'smooth'}); setView('brands'); setTimeout(() => window.location.reload(), 50); };
-
-      const onInk = scrolled;
-      const headerBg = onInk ? 'linear-gradient(180deg, var(--header-from) 0%, var(--header-to) 100%)' : 'rgba(245,246,248,0.85)';
-      const textCol = onInk ? 'rgba(255,255,255,0.92)' : 'var(--text)';
-      const mutedCol = onInk ? 'rgba(255,255,255,0.62)' : 'var(--text-muted)';
-      const faintCol = onInk ? 'rgba(255,255,255,0.45)' : 'var(--text-faint)';
-      const borderCol = onInk ? 'rgba(255,255,255,0.12)' : 'var(--border)';
-      const dividerCol = onInk ? 'rgba(255,255,255,0.18)' : 'var(--border-strong)';
+      const headerBg = 'linear-gradient(180deg, var(--header-from) 0%, var(--header-to) 100%)';
+      const textCol = 'rgba(255,255,255,0.92)';
+      const mutedCol = 'rgba(255,255,255,0.62)';
+      const dividerCol = 'rgba(255,255,255,0.18)';
+      const borderCol = 'rgba(255,255,255,0.12)';
 
       return (
-        <header className="sticky top-0 z-30 backdrop-blur transition-colors duration-300"
+        <header className="sticky top-0 z-30 backdrop-blur"
                 style={{background: headerBg, borderBottom: '1px solid ' + borderCol}}>
           <div className="max-w-6xl mx-auto px-8 py-5 flex items-center justify-between gap-6">
             <button onClick={reload} className="flex items-center gap-4 group cursor-pointer flex-shrink-0" title="처음으로">
               <img src={LOGO_SRC} alt="Grace International"
-                   style={{height:'22px', width:'auto', filter: onInk ? 'none' : 'brightness(0)', transition:'filter 0.3s ease'}}
+                   style={{height:'22px', width:'auto'}}
                    className="opacity-95 group-hover:opacity-100" />
-              <span className="hidden md:inline-block w-px h-5 transition-colors" style={{background: dividerCol}}></span>
-              <span className="hidden md:inline text-xs font-eyebrow uppercase transition-colors"
+              <span className="hidden md:inline-block w-px h-5" style={{background: dividerCol}}></span>
+              <span className="hidden md:inline text-xs font-eyebrow uppercase"
                     style={{color: mutedCol, fontWeight: 500}}>
                 Brand Management
               </span>
             </button>
             <div className="flex items-center">
-              <TabBtn active={view === 'brands'}  onClick={() => setView('brands')}  label="브랜드" sub="Brands" onInk={onInk} />
-              <TabBtn active={view === 'members'} onClick={() => setView('members')} label="담당자" sub="People" onInk={onInk} last />
+              <TabBtn active={view === 'brands'}  onClick={() => setView('brands')}  label="브랜드" sub="Brands" />
+              <TabBtn active={view === 'members'} onClick={() => setView('members')} label="담당자" sub="People" last />
             </div>
           </div>
         </header>
@@ -433,24 +423,20 @@
       );
     }
 
-    function TabBtn({ active, onClick, label, sub, onInk, last }) {
-      const activeCol = onInk ? 'white' : 'var(--ink)';
-      const inactiveCol = onInk ? 'rgba(255,255,255,0.62)' : 'var(--text-muted)';
-      const subCol = onInk ? 'rgba(255,255,255,0.45)' : 'var(--text-faint)';
-      const underline = onInk ? 'white' : 'var(--ink)';
+    function TabBtn({ active, onClick, label, sub, last }) {
       return (
         <button onClick={onClick} className={`px-1 py-2 transition group relative ${last ? '' : 'mr-7'}`}>
           <div className="flex items-baseline gap-2">
             <span className={`text-sm tracking-wider transition ${active ? '' : 'group-hover:opacity-70'}`}
-                  style={{color: active ? activeCol : inactiveCol, fontWeight: active ? 500 : 400}}>
+                  style={{color: active ? 'white' : 'rgba(255,255,255,0.62)', fontWeight: active ? 500 : 400}}>
               {label}
             </span>
-            <span className="text-xs tracking-[0.25em] uppercase font-eyebrow" style={{color: subCol}}>
+            <span className="text-xs tracking-[0.25em] uppercase font-eyebrow" style={{color: 'rgba(255,255,255,0.45)'}}>
               {sub}
             </span>
           </div>
           <span className="absolute bottom-0 left-0 h-px transition-all"
-                style={{width: active ? '100%' : '0%', background: underline}}></span>
+                style={{width: active ? '100%' : '0%', background: 'white'}}></span>
         </button>
       );
     }
