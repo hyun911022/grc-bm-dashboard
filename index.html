@@ -637,13 +637,19 @@
        MEMBERS VIEW — uniform compact cards
        ============================================================ */
     function MembersView({ tasks, stats, showHidden, onOpenMember }) {
+      const groups = [
+        { id: 'head', label: 'Leadership', sub: '부서장 · 팀장', members: MEMBERS.filter(m => m.group === 'head') },
+        ...PARTS.map(part => ({
+          id: part.id, label: part.label, sub: part.labelKo,
+          members: part.members.map(memberById)
+        }))
+      ];
       return (
-        <div className="space-y-10">
-          {/* Leadership */}
-          <div>
-            <GroupHeader text="Leadership" sub="부서장 · 팀장" />
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-              {MEMBERS.filter(m => m.group === 'head').map(m => (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+          {groups.map(group => (
+            <div key={group.id} className="flex flex-col gap-3">
+              <GroupHeader text={group.label} sub={group.sub} />
+              {group.members.map(m => (
                 <MemberCard
                   key={m.id}
                   member={m}
@@ -653,24 +659,6 @@
                   onClick={() => onOpenMember(m.id)}
                 />
               ))}
-            </div>
-          </div>
-
-          {PARTS.map(part => (
-            <div key={part.id}>
-              <GroupHeader text={part.label} sub={part.labelKo} />
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-                {part.members.map(memberById).map(m => (
-                  <MemberCard
-                    key={m.id}
-                    member={m}
-                    total={stats.byMember[m.id] || 0}
-                    active={stats.byMemberActive[m.id] || 0}
-                    tasks={tasks.filter(t => t.assigneeId === m.id && (showHidden || t.status !== 'done'))}
-                    onClick={() => onOpenMember(m.id)}
-                  />
-                ))}
-              </div>
             </div>
           ))}
         </div>
