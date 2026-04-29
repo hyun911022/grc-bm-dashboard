@@ -223,7 +223,6 @@
       const [showAdd, setShowAdd] = useState(false);
       const [editingTask, setEditingTask] = useState(null);
       const [expandedParts, setExpandedParts] = useState(new Set());
-      const [showHidden, setShowHidden] = useState(false);
 
       useEffect(() => {
         try {
@@ -315,16 +314,6 @@
               </h2>
               <div className="flex items-center gap-2">
                 <button
-                  onClick={() => setShowHidden(s => !s)}
-                  className="text-xs px-3.5 py-1.5 rounded-full border transition tracking-wide"
-                  style={{
-                    borderColor: showHidden ? 'var(--ink)' : 'var(--border-strong)',
-                    background: showHidden ? 'var(--ink)' : 'transparent',
-                    color: showHidden ? 'white' : 'var(--text-muted)',
-                  }}>
-                  완료 {showHidden ? '표시' : '숨김'}
-                </button>
-                <button
                   onClick={() => setShowAdd(true)}
                   className="text-xs px-4 py-1.5 rounded-full transition tracking-wide flex items-center gap-1.5"
                   style={{background:'var(--ink)', color:'white'}}>
@@ -338,14 +327,12 @@
                 stats={stats}
                 expandedParts={expandedParts}
                 onTogglePart={togglePart}
-                showHidden={showHidden}
                 onOpenBrand={(id) => setOpenBrand(id)}
               />
             ) : (
               <MembersView
                 tasks={tasks}
                 stats={stats}
-                showHidden={showHidden}
                 onOpenMember={(id) => setOpenMember(id)}
               />
             )}
@@ -471,7 +458,7 @@
     /* ============================================================
        BRANDS VIEW (Accordion: parts collapse; click to expand)
        ============================================================ */
-    function BrandsView({ tasks, stats, expandedParts, onTogglePart, showHidden, onOpenBrand }) {
+    function BrandsView({ tasks, stats, expandedParts, onTogglePart, onOpenBrand }) {
       return (
         <div className="space-y-5">
           {PARTS.map(part => (
@@ -484,7 +471,6 @@
               stats={stats}
               expanded={expandedParts.has(part.id)}
               onToggle={() => onTogglePart(part.id)}
-              showHidden={showHidden}
               onOpenBrand={onOpenBrand}
             />
           ))}
@@ -502,7 +488,7 @@
       );
     }
 
-    function PartAccordion({ part, members, brands, tasks, stats, expanded, onToggle, showHidden, onOpenBrand }) {
+    function PartAccordion({ part, members, brands, tasks, stats, expanded, onToggle, onOpenBrand }) {
       const totalTasks = stats.byPart[part.id] || 0;
       const activeTasks = stats.byPartActive[part.id] || 0;
       const activeBrands = brands.filter(b => b.active).length;
@@ -569,7 +555,7 @@
                     brand={b}
                     total={stats.byBrand[b.id] || 0}
                     active={stats.byBrandActive[b.id] || 0}
-                    brandTasks={tasks.filter(t => t.brandId === b.id && (showHidden || t.status !== 'done'))}
+                    brandTasks={tasks.filter(t => t.brandId === b.id && t.status !== 'done')}
                     onClick={() => onOpenBrand(b.id)}
                   />
                 ))}
@@ -636,7 +622,7 @@
     /* ============================================================
        MEMBERS VIEW — uniform compact cards
        ============================================================ */
-    function MembersView({ tasks, stats, showHidden, onOpenMember }) {
+    function MembersView({ tasks, stats, onOpenMember }) {
       const groups = [
         { id: 'head', label: 'Leadership', sub: '부서장 · 팀장', members: MEMBERS.filter(m => m.group === 'head') },
         ...PARTS.map(part => ({
@@ -655,7 +641,7 @@
                   member={m}
                   total={stats.byMember[m.id] || 0}
                   active={stats.byMemberActive[m.id] || 0}
-                  tasks={tasks.filter(t => t.assigneeId === m.id && (showHidden || t.status !== 'done'))}
+                  tasks={tasks.filter(t => t.assigneeId === m.id && t.status !== 'done')}
                   onClick={() => onOpenMember(m.id)}
                 />
               ))}
