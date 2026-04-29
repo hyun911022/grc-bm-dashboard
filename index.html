@@ -202,16 +202,17 @@
     ];
 
     const STATUS = [
-      { id: 'pending',     label: '대기',   icon: CircleI,        cls: 'text-stone-500',  dot: 'bg-stone-400' },
-      { id: 'in_progress', label: '진행중', icon: ClockI,         cls: 'text-blue-700',   dot: 'bg-blue-600' },
-      { id: 'review',      label: '검토',   icon: AlertCircleI,   cls: 'text-amber-700',  dot: 'bg-amber-500' },
-      { id: 'done',        label: '완료',   icon: CheckCircle2,   cls: 'text-emerald-700',dot: 'bg-emerald-600' },
+      { id: 'pending',   label: '대기',     icon: CircleI,      cls: 'text-stone-600',   dot: 'bg-stone-400',   bg: '#f3f4f6', fg: '#374151', border: '#d1d5db' },
+      { id: 'confirmed', label: '확인완료', icon: ClockI,       cls: 'text-blue-700',    dot: 'bg-blue-600',    bg: '#dbeafe', fg: '#1e40af', border: '#93c5fd' },
+      { id: 'delayed',   label: '지연',     icon: AlertCircleI, cls: 'text-rose-700',    dot: 'bg-rose-600',    bg: '#fee2e2', fg: '#991b1b', border: '#fca5a5' },
+      { id: 'done',      label: '완료',     icon: CheckCircle2, cls: 'text-emerald-700', dot: 'bg-emerald-600', bg: '#dcfce7', fg: '#166534', border: '#86efac' },
     ];
+    const STATUS_MIGRATE = { in_progress: 'confirmed', review: 'delayed' };
 
     const PRIORITY = [
-      { id: 'high',   label: '높음', cls: 'text-rose-700 border-rose-300 bg-rose-50' },
-      { id: 'normal', label: '보통', cls: 'text-stone-600 border-stone-300 bg-stone-50' },
-      { id: 'low',    label: '낮음', cls: 'text-stone-500 border-stone-200 bg-white' },
+      { id: 'low',    label: '낮음', cls: 'text-stone-500 border-stone-200 bg-white',    bg: '#f5f5f4', fg: '#78716c', border: '#e7e5e4' },
+      { id: 'normal', label: '보통', cls: 'text-stone-600 border-stone-300 bg-stone-50', bg: '#f3f4f6', fg: '#374151', border: '#d1d5db' },
+      { id: 'high',   label: '높음', cls: 'text-rose-700 border-rose-300 bg-rose-50',    bg: '#fee2e2', fg: '#991b1b', border: '#fca5a5' },
     ];
 
     const STORAGE_KEY = 'grc-bm-tasks-v1';
@@ -456,17 +457,21 @@
               comments: t.comments || [],
               createdBy: t.createdBy || 'lee_dh',
               assigneeIds: t.assigneeIds || (t.assigneeId ? [t.assigneeId] : []),
+              status: STATUS_MIGRATE[t.status] || t.status || 'pending',
             }));
             setTasks(migrated);
           }
           const pRaw = localStorage.getItem(PINS_KEY);
           const loadedPins = pRaw ? JSON.parse(pRaw) : {};
-          // Default 0000 for any member without a pin
           const filled = {};
           MEMBERS.forEach(mm => { filled[mm.id] = loadedPins[mm.id] || '0000'; });
           setPins(filled);
-          // Persist defaults if first run
           if (!pRaw) localStorage.setItem(PINS_KEY, JSON.stringify(filled));
+          const savedUser = localStorage.getItem(USER_KEY);
+          if (savedUser && MEMBERS.find(m => m.id === savedUser)) {
+            setCurrentUser(savedUser);
+            if (filled[savedUser] === '0000') setMustSetPin(true);
+          }
         } catch (e) {}
         setLoaded(true);
       }, []);
@@ -580,7 +585,7 @@
       }, [isAnyOpen]);
 
       const stats = useMemo(() => {
-        const byBrand = {}, byBrandActive = {}, byMember = {}, byMemberActive = {}, byMemberMentions = {};
+        const byBrand = {}, byBrandActive = {}, byMember = {}, byMemberActive = {}, byMemberMentions = {}, byMemberReplies = {};
         const byPart = {}, byPartActive = {};
         tasks.forEach(t => {
           byBrand[t.brandId] = (byBrand[t.brandId] || 0) + 1;
@@ -598,6 +603,9 @@
             extractMentionIds(c.body || '').forEach(mid => {
               byMemberMentions[mid] = (byMemberMentions[mid] || 0) + 1;
             });
+            if (t.createdBy && c.authorId !== t.createdBy) {
+              byMemberReplies[t.createdBy] = (byMemberReplies[t.createdBy] || 0) + 1;
+            }
           });
           const b = brandById(t.brandId);
           if (b) {
@@ -608,7 +616,7 @@
         const active = tasks.filter(t => t.status !== 'done').length;
         const inProgress = tasks.filter(t => t.status === 'in_progress').length;
         const overdue = tasks.filter(t => t.status !== 'done' && t.dueDate && daysUntil(t.dueDate) < 0).length;
-        return { byBrand, byBrandActive, byMember, byMemberActive, byMemberMentions, byPart, byPartActive, active, inProgress, overdue, total: tasks.length };
+        return { byBrand, byBrandActive, byMember, byMemberActive, byMemberMentions, byMemberReplies, byPart, byPartActive, active, inProgress, overdue, total: tasks.length };
       }, [tasks]);
 
       if (!loaded) {
@@ -1108,6 +1116,7 @@
                   member={m}
                   active={stats.byMemberActive[m.id] || 0}
                   mentionCount={stats.byMemberMentions[m.id] || 0}
+                  replyCount={stats.byMemberReplies[m.id] || 0}
                   accent={g.theme.from}
                   onClick={() => onOpenMember(m.id)}
                 />
@@ -1152,7 +1161,7 @@
       );
     }
 
-    function MemberCard({ member, active, mentionCount, onClick, accent }) {
+    function MemberCard({ member, active, mentionCount, replyCount, onClick, accent }) {
       const isLead = member.group === 'head';
       return (
         <button
@@ -1190,16 +1199,22 @@
               <div className="text-[9px] tracking-[0.2em] uppercase font-eyebrow" style={{color:'var(--text-faint)'}}>to-do</div>
             </div>
           </div>
-          <div className="pt-2.5 flex items-center justify-between" style={{borderTop:'1px solid var(--border)'}}>
-            <div className="flex items-baseline gap-1.5">
-              <span className="text-[10px] tracking-[0.2em] uppercase font-eyebrow" style={{color:'var(--text-faint)'}}>
-                @멘션
-              </span>
-              <span className="font-display tabular-nums" style={{fontSize:'18px', lineHeight:1, fontWeight:300, color: mentionCount > 0 ? '#2563eb' : 'var(--text-faint)'}}>
-                {mentionCount}
-              </span>
+          <div className="pt-2.5 flex items-center justify-between gap-3" style={{borderTop:'1px solid var(--border)'}}>
+            <div className="flex items-baseline gap-4">
+              <div className="flex items-baseline gap-1.5">
+                <span className="text-[10px] tracking-[0.2em] uppercase font-eyebrow" style={{color:'var(--text-faint)'}}>@멘션</span>
+                <span className="font-display tabular-nums" style={{fontSize:'18px', lineHeight:1, fontWeight:300, color: mentionCount > 0 ? '#2563eb' : 'var(--text-faint)'}}>
+                  {mentionCount}
+                </span>
+              </div>
+              <div className="flex items-baseline gap-1.5">
+                <span className="text-[10px] tracking-[0.2em] uppercase font-eyebrow" style={{color:'var(--text-faint)'}}>댓글</span>
+                <span className="font-display tabular-nums" style={{fontSize:'18px', lineHeight:1, fontWeight:300, color: replyCount > 0 ? '#a37800' : 'var(--text-faint)'}}>
+                  {replyCount}
+                </span>
+              </div>
             </div>
-            <span className="flex items-center gap-1 transition group-hover:gap-1.5 text-[10px] tracking-wide" style={{color:'var(--text-muted)'}}>
+            <span className="flex items-center gap-1 transition group-hover:gap-1.5 text-[10px] tracking-wide flex-shrink-0" style={{color:'var(--text-muted)'}}>
               상세 <ArrowUpRight size={10} strokeWidth={1.4} />
             </span>
           </div>
@@ -1582,6 +1597,7 @@
       };
 
       const onKeyDown = (e) => {
+        if (e.isComposing || e.keyCode === 229) return;
         if (popup && filtered.length > 0) {
           if (e.key === 'ArrowDown') { e.preventDefault(); setPopup(p => ({...p, idx: (p.idx + 1) % filtered.length})); return; }
           if (e.key === 'ArrowUp')   { e.preventDefault(); setPopup(p => ({...p, idx: (p.idx - 1 + filtered.length) % filtered.length})); return; }
@@ -1695,11 +1711,33 @@
       );
     }
 
+    function PriorityButtons({ value, onChange }) {
+      return (
+        <div className="inline-flex items-center gap-1.5">
+          {PRIORITY.map(p => {
+            const active = p.id === value;
+            return (
+              <button key={p.id} type="button"
+                      onClick={() => onChange(p.id)}
+                      className="text-xs tracking-wide px-3 py-1.5 rounded-sm transition"
+                      style={{
+                        border: '1px solid ' + (active ? p.border : 'var(--border)'),
+                        background: active ? p.bg : 'var(--surface)',
+                        color: active ? p.fg : 'var(--text-faint)',
+                        fontWeight: active ? 500 : 400,
+                      }}>
+                {p.label}
+              </button>
+            );
+          })}
+        </div>
+      );
+    }
+
     function StatusButtons({ task, currentStatus, canEdit, onChange }) {
       return (
-        <div className="inline-flex items-center gap-1">
+        <div className="inline-flex items-center gap-1 flex-wrap">
           {STATUS.map(s => {
-            const Ic = s.icon;
             const active = s.id === currentStatus;
             const handler = (e) => {
               e.stopPropagation();
@@ -1712,14 +1750,16 @@
                       onClick={handler}
                       disabled={!canEdit}
                       title={canEdit ? s.label : `${s.label} (담당자만 변경)`}
-                      className={`flex items-center gap-1 px-1.5 py-0.5 rounded-sm transition ${canEdit ? 'cursor-pointer' : 'cursor-not-allowed'}`}
+                      className="text-[10px] tracking-wide px-2 py-0.5 rounded-sm transition"
                       style={{
-                        border: '1px solid ' + (active ? 'var(--ink)' : 'transparent'),
-                        background: active ? 'var(--surface-2)' : 'transparent',
-                        opacity: !canEdit && !active ? 0.4 : 1,
+                        border: '1px solid ' + (active ? s.border : 'var(--border)'),
+                        background: active ? s.bg : 'transparent',
+                        color: active ? s.fg : 'var(--text-faint)',
+                        fontWeight: active ? 500 : 400,
+                        cursor: canEdit ? (active ? 'default' : 'pointer') : 'not-allowed',
+                        opacity: !canEdit && !active ? 0.5 : 1,
                       }}>
-                <Ic size={11} strokeWidth={1.6} className={s.cls} />
-                {active && <span className={`text-[10px] tracking-wide ${s.cls}`} style={{fontWeight:500}}>{s.label}</span>}
+                {s.label}
               </button>
             );
           })}
@@ -1841,11 +1881,10 @@
       const [assigneeIds, setAssigneeIds] = useState([]);
       const [dueDate, setDueDate] = useState('');
       const [priority, setPriority] = useState('normal');
-      const [status, setStatus] = useState('pending');
       const submit = (e) => {
         e.preventDefault();
         if (!title.trim() || assigneeIds.length === 0) return;
-        onSubmit({ brandId, title: title.trim(), description: description.trim(), assigneeIds, dueDate, priority, status });
+        onSubmit({ brandId, title: title.trim(), description: description.trim(), assigneeIds, dueDate, priority, status: 'pending' });
       };
       return (
         <form onSubmit={submit} className="rounded-sm p-4 space-y-3"
@@ -1870,27 +1909,10 @@
                      style={{background:'var(--surface)', border:'1px solid var(--border)', color:'var(--ink)'}} />
             </FormField>
             <FormField label="우선순위">
-              <select value={priority} onChange={e => setPriority(e.target.value)}
-                      className="w-full rounded-sm px-2 py-1.5 text-xs outline-none transition"
-                      style={{background:'var(--surface)', border:'1px solid var(--border)', color:'var(--ink)'}}>
-                {PRIORITY.map(p => <option key={p.id} value={p.id}>{p.label}</option>)}
-              </select>
+              <PriorityButtons value={priority} onChange={setPriority} />
             </FormField>
           </div>
-          <div className="flex items-center justify-between pt-2 flex-wrap gap-2">
-            <div className="flex gap-1.5 flex-wrap">
-              {STATUS.map(s => (
-                <button key={s.id} type="button" onClick={() => setStatus(s.id)}
-                        className="text-[10px] px-2 py-1 rounded-sm transition tracking-wider"
-                        style={{
-                          border: '1px solid ' + (status === s.id ? 'var(--ink)' : 'var(--border)'),
-                          background: status === s.id ? 'var(--ink)' : 'var(--surface)',
-                          color: status === s.id ? 'white' : 'var(--text-muted)'
-                        }}>
-                  <span className={`inline-block w-1 h-1 rounded-full mr-1.5 ${s.dot}`}></span>{s.label}
-                </button>
-              ))}
-            </div>
+          <div className="flex items-center justify-end pt-2 flex-wrap gap-2">
             <div className="flex gap-2">
               <button type="button" onClick={onCancel} className="text-xs px-3 py-1.5 transition" style={{color:'var(--text-muted)'}}>취소</button>
               <button type="submit" disabled={!title.trim() || assigneeIds.length === 0}
@@ -1970,11 +1992,10 @@
       const [assigneeIds, setAssigneeIds] = useState(initial?.assigneeIds || (initial?.assigneeId ? [initial.assigneeId] : []));
       const [dueDate, setDueDate] = useState(initial?.dueDate || '');
       const [priority, setPriority] = useState(initial?.priority || 'normal');
-      const [status, setStatus] = useState(initial?.status || 'pending');
       const submit = (e) => {
         e.preventDefault();
         if (!title.trim() || !brandId || assigneeIds.length === 0) return;
-        onSubmit({ title: title.trim(), description: description.trim(), brandId, assigneeIds, dueDate, priority, status });
+        onSubmit({ title: title.trim(), description: description.trim(), brandId, assigneeIds, dueDate, priority, status: initial?.status || 'pending' });
       };
       return (
         <Modal onClose={onClose}>
@@ -1998,15 +2019,17 @@
                       className="w-full rounded-sm px-3 py-2 text-sm outline-none transition"
                       style={{background:'var(--surface)', border:'1px solid var(--border)', color:'var(--ink)'}}>
                 <option value="">— 브랜드 선택 —</option>
-                {PARTS.map(part => (
-                  <optgroup key={part.id} label={part.labelKo}>
-                    {BRANDS.filter(b => b.part === part.id).map(b => (
-                      <option key={b.id} value={b.id}>
-                        {b.name.split('/')[0]}{b.region ? ` (${b.region})` : ''}
-                      </option>
-                    ))}
-                  </optgroup>
-                ))}
+                {(() => {
+                  const podLock = (initial?.assigneeIds || []).map(memberById).find(m => m && m.group !== 'head');
+                  const podFilter = podLock ? podLock.group : null;
+                  return PARTS.filter(p => !podFilter || p.id === podFilter).map(part => (
+                    <optgroup key={part.id} label={part.labelKo}>
+                      {BRANDS.filter(b => b.part === part.id).map(b => (
+                        <option key={b.id} value={b.id}>{b.name.split('/')[0]}</option>
+                      ))}
+                    </optgroup>
+                  ));
+                })()}
               </select>
             </FormField>
             <FormField label="세부 내용">
@@ -2028,28 +2051,9 @@
                        style={{background:'var(--surface)', border:'1px solid var(--border)', color:'var(--ink)'}} />
               </FormField>
               <FormField label="우선순위">
-                <select value={priority} onChange={e => setPriority(e.target.value)}
-                        className="w-full rounded-sm px-2 py-1.5 text-xs outline-none transition"
-                        style={{background:'var(--surface)', border:'1px solid var(--border)', color:'var(--ink)'}}>
-                  {PRIORITY.map(p => <option key={p.id} value={p.id}>{p.label}</option>)}
-                </select>
+                <PriorityButtons value={priority} onChange={setPriority} />
               </FormField>
             </div>
-            <FormField label="상태">
-              <div className="flex gap-1.5 flex-wrap">
-                {STATUS.map(s => (
-                  <button key={s.id} type="button" onClick={() => setStatus(s.id)}
-                          className="text-xs px-3 py-1.5 rounded-sm transition tracking-wider"
-                          style={{
-                            border: '1px solid ' + (status === s.id ? 'var(--ink)' : 'var(--border)'),
-                            background: status === s.id ? 'var(--ink)' : 'var(--surface)',
-                            color: status === s.id ? 'white' : 'var(--text-muted)'
-                          }}>
-                    <span className={`inline-block w-1.5 h-1.5 rounded-full mr-2 ${s.dot}`}></span>{s.label}
-                  </button>
-                ))}
-              </div>
-            </FormField>
             <div className="flex items-center justify-end gap-3 pt-4" style={{borderTop:'1px solid var(--border)'}}>
               <button type="button" onClick={onClose} className="text-sm px-4 py-2 transition" style={{color:'var(--text-muted)'}}>취소</button>
               <button type="submit" disabled={!title.trim() || !brandId || assigneeIds.length === 0}
