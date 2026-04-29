@@ -278,6 +278,7 @@
               ...t,
               comments: t.comments || [],
               createdBy: t.createdBy || 'lee_dh',
+              assigneeIds: t.assigneeIds || (t.assigneeId ? [t.assigneeId] : []),
             }));
             setTasks(migrated);
           }
@@ -322,7 +323,7 @@
           brandId: data.brandId,
           title: data.title,
           description: data.description || '',
-          assigneeId: data.assigneeId,
+          assigneeIds: data.assigneeIds || [],
           dueDate: data.dueDate || '',
           priority: data.priority || 'normal',
           status: data.status || 'pending',
@@ -351,10 +352,11 @@
         tasks.forEach(t => {
           byBrand[t.brandId] = (byBrand[t.brandId] || 0) + 1;
           if (t.status !== 'done') byBrandActive[t.brandId] = (byBrandActive[t.brandId] || 0) + 1;
-          if (t.assigneeId) {
-            byMember[t.assigneeId] = (byMember[t.assigneeId] || 0) + 1;
-            if (t.status !== 'done') byMemberActive[t.assigneeId] = (byMemberActive[t.assigneeId] || 0) + 1;
-          }
+          const ids = t.assigneeIds || (t.assigneeId ? [t.assigneeId] : []);
+          ids.forEach(aid => {
+            byMember[aid] = (byMember[aid] || 0) + 1;
+            if (t.status !== 'done') byMemberActive[aid] = (byMemberActive[aid] || 0) + 1;
+          });
           const b = brandById(t.brandId);
           if (b) {
             byPart[b.part] = (byPart[b.part] || 0) + 1;
@@ -584,7 +586,7 @@
     }
 
     const PART_THEME = {
-      part1: { from: '#2c3a55', to: '#4a5d85', numeral: 'I' },
+      part1: { from: '#6b561c', to: '#9c8540', numeral: 'I' },
       part2: { from: '#264540', to: '#46716a', numeral: 'II' },
       part3: { from: '#523840', to: '#825461', numeral: 'III' },
     };
@@ -747,7 +749,7 @@
                   member={m}
                   total={stats.byMember[m.id] || 0}
                   active={stats.byMemberActive[m.id] || 0}
-                  tasks={tasks.filter(t => t.assigneeId === m.id && t.status !== 'done')}
+                  tasks={tasks.filter(t => (t.assigneeIds || []).includes(m.id) && t.status !== 'done')}
                   accent={g.theme.from}
                   accentSoft={g.theme.to}
                   onClick={() => onOpenMember(m.id)}
@@ -958,11 +960,61 @@
     /* ============================================================
        MEMBER MODAL
        ============================================================ */
+    function MentionItem({ item, currentUser, onAddComment, onDeleteComment, onOpenBrand }) {
+      const [replying, setReplying] = useState(false);
+      const b = brandById(item.task.brandId);
+      const author = item.kind === 'comment' ? memberById(item.comment.authorId) : memberById(item.task.createdBy);
+      const d = new Date(item.when);
+      const when = `${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+      return (
+        <li className="rounded-sm" style={{border:'1px solid var(--border)', background:'var(--surface)'}}>
+          <div className="p-3">
+            <div className="flex items-center gap-2 mb-1.5 flex-wrap">
+              {b && (
+                <button onClick={() => onOpenBrand(b.id)}
+                        className="text-[10px] px-1.5 py-0.5 rounded-sm tracking-wider transition"
+                        style={{background:'var(--surface-2)', color:'var(--ink-soft)', border:'1px solid var(--border)'}}>
+                  {b.name.split('/')[0]}
+                </button>
+              )}
+              <span className="text-sm font-medium" style={{color:'var(--ink)'}}>{item.task.title}</span>
+              <span className="text-[10px] px-1.5 py-0.5 rounded-sm tracking-wider"
+                    style={{background:'rgba(201,169,97,0.15)', color:'#a37800', border:'1px solid #d6c08a'}}>
+                {item.kind === 'comment' ? '댓글' : '작업 본문'}
+              </span>
+              <button onClick={() => setReplying(r => !r)}
+                      className="ml-auto text-[10px] px-2 py-0.5 rounded-sm tracking-wider transition"
+                      style={{
+                        color: replying ? 'white' : 'var(--ink)',
+                        background: replying ? 'var(--ink)' : 'transparent',
+                        border: '1px solid var(--ink)'
+                      }}>
+                {replying ? '닫기' : '답글'}
+              </button>
+            </div>
+            <p className="text-xs leading-relaxed mb-1.5" style={{color:'var(--text)'}}>
+              <RichText text={item.kind === 'comment' ? item.comment.body : item.task.description} />
+            </p>
+            <div className="text-[10px] tracking-wide" style={{color:'var(--text-faint)'}}>
+              {author?.name} {author?.title} · {when}
+              {(item.task.comments || []).length > 0 && <span> · 💬 {(item.task.comments || []).length}</span>}
+            </div>
+          </div>
+          {replying && (
+            <div style={{borderTop:'1px solid var(--border)'}}>
+              <CommentThread task={item.task} currentUser={currentUser}
+                             onAddComment={onAddComment} onDeleteComment={onDeleteComment} />
+            </div>
+          )}
+        </li>
+      );
+    }
+
     function MemberModal({ memberId, tasks, allTasks, onClose, onCycleStatus, onDelete, onEdit, currentUser, onAddComment, onDeleteComment, onOpenBrand }) {
       const m = memberById(memberId);
       const [tab, setTab] = useState('active');
       // Tasks assigned to this member
-      const myTasks = (allTasks || tasks).filter(t => t.assigneeId === memberId);
+      const myTasks = (allTasks || tasks).filter(t => (t.assigneeIds || []).includes(memberId));
       const activeTasks  = myTasks.filter(t => t.status !== 'done');
       const doneTasks    = myTasks.filter(t => t.status === 'done');
       // Mentions: tasks where this member is referenced (in description or in any comment)
@@ -1018,36 +1070,12 @@
                 </div>
               ) : (
                 <ul className="space-y-3">
-                  {mentionedItems.map((item, i) => {
-                    const b = brandById(item.task.brandId);
-                    const author = item.kind === 'comment' ? memberById(item.comment.authorId) : memberById(item.task.createdBy);
-                    const d = new Date(item.when);
-                    const when = `${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
-                    return (
-                      <li key={i} className="p-3 rounded-sm" style={{border:'1px solid var(--border)', background:'var(--surface)'}}>
-                        <div className="flex items-center gap-2 mb-1.5 flex-wrap">
-                          {b && (
-                            <button onClick={() => onOpenBrand(b.id)}
-                                    className="text-[10px] px-1.5 py-0.5 rounded-sm tracking-wider transition"
-                                    style={{background:'var(--surface-2)', color:'var(--ink-soft)', border:'1px solid var(--border)'}}>
-                              {b.name.split('/')[0]}
-                            </button>
-                          )}
-                          <span className="text-sm font-medium" style={{color:'var(--ink)'}}>{item.task.title}</span>
-                          <span className="text-[10px] px-1.5 py-0.5 rounded-sm tracking-wider"
-                                style={{background:'rgba(201,169,97,0.15)', color:'#a37800', border:'1px solid #d6c08a'}}>
-                            {item.kind === 'comment' ? '댓글' : '작업 본문'}
-                          </span>
-                        </div>
-                        <p className="text-xs leading-relaxed mb-1.5" style={{color:'var(--text)'}}>
-                          <RichText text={item.kind === 'comment' ? item.comment.body : item.task.description} />
-                        </p>
-                        <div className="text-[10px] tracking-wide" style={{color:'var(--text-faint)'}}>
-                          {author?.name} {author?.title} · {when}
-                        </div>
-                      </li>
-                    );
-                  })}
+                  {mentionedItems.map((item, i) => (
+                    <MentionItem key={i} item={item}
+                      currentUser={currentUser}
+                      onAddComment={onAddComment} onDeleteComment={onDeleteComment}
+                      onOpenBrand={onOpenBrand} />
+                  ))}
                 </ul>
               )
             ) : list.length === 0 ? (
@@ -1249,7 +1277,7 @@
     function TaskRow({ task, showBrand, onCycleStatus, onEdit, onDelete, currentUser, onAddComment, onDeleteComment }) {
       const s = statusOf(task.status);
       const p = priorityOf(task.priority);
-      const a = memberById(task.assigneeId);
+      const assignees = (task.assigneeIds || (task.assigneeId ? [task.assigneeId] : [])).map(memberById).filter(Boolean);
       const b = brandById(task.brandId);
       const days = task.dueDate ? daysUntil(task.dueDate) : null;
       const isDone = task.status === 'done';
@@ -1300,9 +1328,14 @@
                 <span className={`flex items-center gap-1 ${s.cls}`}>
                   <span className={`w-1 h-1 rounded-full ${s.dot}`}></span> {s.label}
                 </span>
-                {a && (
+                {assignees.length > 0 && (
                   <span className="flex items-center gap-1">
-                    <UsersI size={9} strokeWidth={1.5} /> {a.name} {a.title}
+                    <UsersI size={9} strokeWidth={1.5} />
+                    {assignees.length === 1
+                      ? `${assignees[0].name} ${assignees[0].title}`
+                      : assignees.length === 2
+                        ? `${assignees[0].name} · ${assignees[1].name}`
+                        : `${assignees[0].name} 외 ${assignees.length - 1}명`}
                   </span>
                 )}
                 {task.dueDate && (
@@ -1352,14 +1385,14 @@
     function InlineTaskForm({ brandId, onSubmit, onCancel }) {
       const [title, setTitle] = useState('');
       const [description, setDescription] = useState('');
-      const [assigneeId, setAssigneeId] = useState('');
+      const [assigneeIds, setAssigneeIds] = useState([]);
       const [dueDate, setDueDate] = useState('');
       const [priority, setPriority] = useState('normal');
       const [status, setStatus] = useState('pending');
       const submit = (e) => {
         e.preventDefault();
-        if (!title.trim() || !assigneeId) return;
-        onSubmit({ brandId, title: title.trim(), description: description.trim(), assigneeId, dueDate, priority, status });
+        if (!title.trim() || assigneeIds.length === 0) return;
+        onSubmit({ brandId, title: title.trim(), description: description.trim(), assigneeIds, dueDate, priority, status });
       };
       return (
         <form onSubmit={submit} className="rounded-sm p-4 space-y-3"
@@ -1367,11 +1400,17 @@
           <input type="text" placeholder="작업 제목 *" value={title} onChange={e => setTitle(e.target.value)} autoFocus
                  className="w-full bg-transparent text-sm py-2 outline-none transition"
                  style={{color:'var(--ink)', borderBottom:'1px solid var(--border-strong)'}} />
-          <textarea placeholder="세부 내용 (선택)" value={description} onChange={e => setDescription(e.target.value)} rows={2}
-                    className="w-full bg-transparent text-xs py-2 outline-none resize-none leading-relaxed"
-                    style={{color:'var(--text)', borderBottom:'1px solid var(--border-strong)'}} />
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-            <FormField label="담당자 *"><AssigneeSelect value={assigneeId} onChange={setAssigneeId} /></FormField>
+          <MentionInput
+            value={description}
+            onChange={setDescription}
+            placeholder="세부 내용 (선택, @로 멤버 멘션)"
+            rows={2}
+            className="w-full bg-transparent text-xs py-2 outline-none resize-none leading-relaxed"
+            style={{color:'var(--text)', borderBottom:'1px solid var(--border-strong)'}} />
+          <FormField label="담당자 *">
+            <MultiAssigneePicker brandId={brandId} value={assigneeIds} onChange={setAssigneeIds} />
+          </FormField>
+          <div className="grid grid-cols-2 gap-3">
             <FormField label="마감">
               <input type="date" value={dueDate} onChange={e => setDueDate(e.target.value)}
                      className="w-full rounded-sm px-2 py-1.5 text-xs outline-none transition"
@@ -1401,7 +1440,7 @@
             </div>
             <div className="flex gap-2">
               <button type="button" onClick={onCancel} className="text-xs px-3 py-1.5 transition" style={{color:'var(--text-muted)'}}>취소</button>
-              <button type="submit" disabled={!title.trim() || !assigneeId}
+              <button type="submit" disabled={!title.trim() || assigneeIds.length === 0}
                       className="text-xs px-4 py-1.5 rounded-sm transition disabled:opacity-30 disabled:cursor-not-allowed"
                       style={{background:'var(--ink)', color:'white'}}>
                 등록
@@ -1421,25 +1460,50 @@
       );
     }
 
-    function AssigneeSelect({ value, onChange }) {
+    function MultiAssigneePicker({ brandId, value, onChange }) {
+      const brand = brandId ? brandById(brandId) : null;
+      const podMemberIds = brand ? (PARTS.find(p => p.id === brand.part)?.members || []) : [];
+      const leadIds = MEMBERS.filter(m => m.group === 'head').map(m => m.id);
+      const optionIds = brand ? [...leadIds, ...podMemberIds] : MEMBERS.map(m => m.id);
+      const options = optionIds.map(memberById).filter(Boolean);
+      const toggle = (id) => {
+        if (value.includes(id)) onChange(value.filter(x => x !== id));
+        else onChange([...value, id]);
+      };
+      // Auto-prune assignees not in valid set when brand changes
+      useEffect(() => {
+        if (!brand) return;
+        const valid = new Set(optionIds);
+        const next = value.filter(id => valid.has(id));
+        if (next.length !== value.length) onChange(next);
+        // eslint-disable-next-line
+      }, [brandId]);
       return (
-        <select value={value} onChange={e => onChange(e.target.value)}
-                className="w-full rounded-sm px-2 py-1.5 text-xs outline-none transition"
-                style={{background:'var(--surface)', border:'1px solid var(--border)', color:'var(--ink)'}}>
-          <option value="">— 담당자 선택 —</option>
-          <optgroup label="Leadership">
-            {MEMBERS.filter(m => m.group === 'head').map(m => (
-              <option key={m.id} value={m.id}>{m.name} {m.title} ({m.role})</option>
-            ))}
-          </optgroup>
-          {PARTS.map(part => (
-            <optgroup key={part.id} label={part.labelKo}>
-              {part.members.map(memberById).map(m => (
-                <option key={m.id} value={m.id}>{m.name} {m.title}</option>
-              ))}
-            </optgroup>
-          ))}
-        </select>
+        <div>
+          {!brand && (
+            <p className="text-[10px] mb-1.5" style={{color:'var(--text-faint)'}}>브랜드를 먼저 선택하세요</p>
+          )}
+          <div className="flex flex-wrap gap-1.5">
+            {options.map(m => {
+              const selected = value.includes(m.id);
+              const isLead = m.group === 'head';
+              return (
+                <button key={m.id} type="button" onClick={() => toggle(m.id)}
+                        className="text-xs px-2.5 py-1 rounded-full transition tracking-wide flex items-center gap-1"
+                        style={{
+                          background: selected ? 'var(--ink)' : 'var(--surface)',
+                          color: selected ? 'white' : 'var(--text)',
+                          border: '1px solid ' + (selected ? 'var(--ink)' : 'var(--border-strong)'),
+                        }}>
+                  {selected && <span style={{fontSize:'9px'}}>✓</span>}
+                  <span>{m.name}</span>
+                  <span style={{opacity: 0.65, fontSize:'11px'}}>{m.title}</span>
+                  {isLead && <span style={{opacity:0.5, fontSize:'10px'}}>·{m.role}</span>}
+                </button>
+              );
+            })}
+          </div>
+        </div>
       );
     }
 
@@ -1450,14 +1514,14 @@
       const [title, setTitle] = useState(initial?.title || '');
       const [description, setDescription] = useState(initial?.description || '');
       const [brandId, setBrandId] = useState(initial?.brandId || initialBrand || '');
-      const [assigneeId, setAssigneeId] = useState(initial?.assigneeId || '');
+      const [assigneeIds, setAssigneeIds] = useState(initial?.assigneeIds || (initial?.assigneeId ? [initial.assigneeId] : []));
       const [dueDate, setDueDate] = useState(initial?.dueDate || '');
       const [priority, setPriority] = useState(initial?.priority || 'normal');
       const [status, setStatus] = useState(initial?.status || 'pending');
       const submit = (e) => {
         e.preventDefault();
-        if (!title.trim() || !brandId || !assigneeId) return;
-        onSubmit({ title: title.trim(), description: description.trim(), brandId, assigneeId, dueDate, priority, status });
+        if (!title.trim() || !brandId || assigneeIds.length === 0) return;
+        onSubmit({ title: title.trim(), description: description.trim(), brandId, assigneeIds, dueDate, priority, status });
       };
       return (
         <Modal onClose={onClose}>
@@ -1485,7 +1549,7 @@
                   <optgroup key={part.id} label={part.labelKo}>
                     {BRANDS.filter(b => b.part === part.id).map(b => (
                       <option key={b.id} value={b.id}>
-                        {b.name}{b.priority ? ' ★' : ''}{b.region ? ` (${b.region})` : ''}
+                        {b.name.split('/')[0]}{b.region ? ` (${b.region})` : ''}
                       </option>
                     ))}
                   </optgroup>
@@ -1493,13 +1557,18 @@
               </select>
             </FormField>
             <FormField label="세부 내용">
-              <textarea value={description} onChange={e => setDescription(e.target.value)} rows={3}
-                        className="w-full rounded-sm px-3 py-2 text-sm outline-none transition leading-relaxed"
-                        style={{background:'var(--surface)', border:'1px solid var(--border)', color:'var(--ink)'}}
-                        placeholder="배경, 컨텍스트, 결과물 형태 등" />
+              <MentionInput
+                value={description}
+                onChange={setDescription}
+                placeholder="배경, 컨텍스트, 결과물 형태 (@로 멤버 멘션)"
+                rows={3}
+                className="w-full rounded-sm px-3 py-2 text-sm outline-none transition leading-relaxed"
+                style={{background:'var(--surface)', border:'1px solid var(--border)', color:'var(--ink)'}} />
             </FormField>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <FormField label="담당자 *"><AssigneeSelect value={assigneeId} onChange={setAssigneeId} /></FormField>
+            <FormField label="담당자 *">
+              <MultiAssigneePicker brandId={brandId} value={assigneeIds} onChange={setAssigneeIds} />
+            </FormField>
+            <div className="grid grid-cols-2 gap-4">
               <FormField label="마감일">
                 <input type="date" value={dueDate} onChange={e => setDueDate(e.target.value)}
                        className="w-full rounded-sm px-2 py-1.5 text-xs outline-none transition"
@@ -1530,7 +1599,7 @@
             </FormField>
             <div className="flex items-center justify-end gap-3 pt-4" style={{borderTop:'1px solid var(--border)'}}>
               <button type="button" onClick={onClose} className="text-sm px-4 py-2 transition" style={{color:'var(--text-muted)'}}>취소</button>
-              <button type="submit" disabled={!title.trim() || !brandId || !assigneeId}
+              <button type="submit" disabled={!title.trim() || !brandId || assigneeIds.length === 0}
                       className="text-sm px-5 py-2 rounded-sm transition disabled:opacity-30 disabled:cursor-not-allowed"
                       style={{background:'var(--ink)', color:'white'}}>
                 {mode === 'create' ? '작업 등록' : '저장'}
