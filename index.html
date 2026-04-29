@@ -48,6 +48,17 @@
     input[type="date"] { color-scheme: light; }
     /* Smooth accordion */
     .acc-content { overflow: hidden; transition: max-height 0.45s cubic-bezier(0.4, 0, 0.2, 1); }
+    /* View transitions */
+    .fade-up { animation: fade-up 0.45s cubic-bezier(0.4, 0, 0.2, 1) both; }
+    @keyframes fade-up { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+    .stagger > * { opacity: 0; animation: fade-up 0.5s cubic-bezier(0.4, 0, 0.2, 1) forwards; }
+    .stagger > *:nth-child(1) { animation-delay: 0.00s; }
+    .stagger > *:nth-child(2) { animation-delay: 0.06s; }
+    .stagger > *:nth-child(3) { animation-delay: 0.12s; }
+    .hero-card-bg { background-size: cover; background-position: center; position: absolute; inset: 0; opacity: 0.18; mix-blend-mode: luminosity; }
+    .hero-overlay { position: absolute; inset: 0; background:
+      radial-gradient(ellipse at 70% 25%, rgba(255,255,255,0.15) 0%, transparent 55%),
+      radial-gradient(ellipse at 20% 80%, rgba(0,0,0,0.25) 0%, transparent 50%); pointer-events: none; }
   </style>
 
   <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
@@ -222,7 +233,6 @@
       const [openMember, setOpenMember] = useState(null);
       const [showAdd, setShowAdd] = useState(false);
       const [editingTask, setEditingTask] = useState(null);
-      const [expandedParts, setExpandedParts] = useState(new Set());
 
       useEffect(() => {
         try {
@@ -264,14 +274,6 @@
         updateTask(id, { status: order[(idx + 1) % order.length] });
       };
 
-      const togglePart = (id) => {
-        setExpandedParts(prev => {
-          const next = new Set(prev);
-          if (next.has(id)) next.delete(id);
-          else next.add(id);
-          return next;
-        });
-      };
 
       const stats = useMemo(() => {
         const byBrand = {}, byBrandActive = {}, byMember = {}, byMemberActive = {};
@@ -325,8 +327,6 @@
               <BrandsView
                 tasks={tasks}
                 stats={stats}
-                expandedParts={expandedParts}
-                onTogglePart={togglePart}
                 onOpenBrand={(id) => setOpenBrand(id)}
               />
             ) : (
@@ -338,7 +338,7 @@
             )}
           </main>
 
-          <footer className="max-w-6xl mx-auto px-8 py-10 text-xs border-t flex items-center justify-between flex-wrap gap-2" style={{color:'var(--text-faint)', borderColor:'var(--border)'}}>
+          <footer className="max-w-6xl mx-auto px-8 py-10 text-xs border-t flex flex-col gap-1.5" style={{color:'var(--text-faint)', borderColor:'var(--border)'}}>
             <span className="tracking-[0.25em] uppercase">Grace International · Brand Management · Operations</span>
             <span className="tracking-wider">개발자 : BM부 이동현 차장</span>
           </footer>
@@ -444,109 +444,154 @@
     /* ============================================================
        BRANDS VIEW (Accordion: parts collapse; click to expand)
        ============================================================ */
-    function BrandsView({ tasks, stats, expandedParts, onTogglePart, onOpenBrand }) {
+    function BrandsView({ tasks, stats, onOpenBrand }) {
+      const [selected, setSelected] = useState(null);
+      if (selected) {
+        const part = PARTS.find(p => p.id === selected);
+        const partBrands = BRANDS.filter(b => b.part === part.id);
+        return (
+          <ExpandedPart
+            key={selected}
+            part={part}
+            members={part.members.map(memberById)}
+            brands={partBrands}
+            tasks={tasks}
+            stats={stats}
+            onBack={() => setSelected(null)}
+            onOpenBrand={onOpenBrand}
+          />
+        );
+      }
       return (
-        <div className="space-y-5">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 stagger" key="grid">
           {PARTS.map(part => (
-            <PartAccordion
+            <PartHeroCard
               key={part.id}
               part={part}
               members={part.members.map(memberById)}
               brands={BRANDS.filter(b => b.part === part.id)}
-              tasks={tasks}
               stats={stats}
-              expanded={expandedParts.has(part.id)}
-              onToggle={() => onTogglePart(part.id)}
-              onOpenBrand={onOpenBrand}
+              onClick={() => setSelected(part.id)}
             />
           ))}
         </div>
       );
     }
 
-    function SectionLabel({ title }) {
+    const PART_THEME = {
+      part1: { from: '#2c3a55', to: '#4a5d85', accent: '#9bb1d8',
+               en: 'Personal Care',  sub: 'Daily Wellness Brands' },
+      part2: { from: '#264540', to: '#46716a', accent: '#9ec5bd',
+               en: 'Beauty & Heritage', sub: 'Premium Lifestyle' },
+      part3: { from: '#523840', to: '#825461', accent: '#d3a8b3',
+               en: 'Health & Living', sub: 'Wellness Essentials' },
+    };
+
+    function PartHeroCard({ part, members, brands, stats, onClick }) {
+      const t = PART_THEME[part.id];
+      const totalActive = stats.byPartActive[part.id] || 0;
       return (
-        <div className="mb-8 pb-5" style={{borderBottom:'1px solid var(--border)'}}>
-          <h2 className="font-display text-3xl tracking-tight" style={{color:'var(--ink)'}}>
-            {title}
-          </h2>
-        </div>
+        <button onClick={onClick}
+                className="group relative rounded-lg overflow-hidden text-left transition-all duration-300"
+                style={{
+                  background: `linear-gradient(165deg, ${t.from} 0%, ${t.to} 100%)`,
+                  minHeight: '420px', color: 'white',
+                  boxShadow: '0 1px 2px rgba(30,39,70,0.05), 0 12px 28px -16px rgba(30,39,70,0.18)'
+                }}
+                onMouseEnter={(e) => e.currentTarget.style.boxShadow = '0 1px 2px rgba(30,39,70,0.08), 0 24px 48px -20px rgba(30,39,70,0.35)'}
+                onMouseLeave={(e) => e.currentTarget.style.boxShadow = '0 1px 2px rgba(30,39,70,0.05), 0 12px 28px -16px rgba(30,39,70,0.18)'}>
+          <div className="hero-overlay"></div>
+          <div className="relative h-full flex flex-col justify-between p-7" style={{minHeight: '420px'}}>
+            <div>
+              <div className="text-xs font-eyebrow uppercase mb-4" style={{color: 'rgba(255,255,255,0.65)'}}>
+                {part.label}
+              </div>
+              <h3 className="font-display tracking-tight mb-1" style={{fontSize: '34px', lineHeight: 1.05}}>
+                {t.en}
+              </h3>
+              <div className="text-sm" style={{color: 'rgba(255,255,255,0.78)'}}>{t.sub}</div>
+            </div>
+            <div>
+              <div className="mb-5 text-xs leading-relaxed" style={{color: 'rgba(255,255,255,0.6)'}}>
+                {members.map(m => `${m.name} ${m.title}`).join(' · ')}
+              </div>
+              <div className="flex items-end justify-between">
+                <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs tracking-wide"
+                     style={{border: '1px solid rgba(255,255,255,0.45)'}}>
+                  {brands.length} Brands
+                  {totalActive > 0 && <span style={{color:'rgba(255,255,255,0.65)'}}>· {totalActive} active</span>}
+                </div>
+                <span className="transition-transform duration-300 group-hover:translate-x-1 group-hover:-translate-y-1"
+                      style={{color: 'rgba(255,255,255,0.85)'}}>
+                  <ArrowUpRight size={22} strokeWidth={1.6} />
+                </span>
+              </div>
+            </div>
+          </div>
+        </button>
       );
     }
 
-    function PartAccordion({ part, members, brands, tasks, stats, expanded, onToggle, onOpenBrand }) {
-      const totalTasks = stats.byPart[part.id] || 0;
-      const activeTasks = stats.byPartActive[part.id] || 0;
-      const activeBrands = brands.filter(b => b.active).length;
-      const ref = useRef(null);
-
+    function ExpandedPart({ part, members, brands, tasks, stats, onBack, onOpenBrand }) {
+      const t = PART_THEME[part.id];
+      const totalActive = stats.byPartActive[part.id] || 0;
+      const total = stats.byPart[part.id] || 0;
       return (
-        <div className="rounded-sm transition-shadow"
-             style={{
-               background:'var(--surface)',
-               border:'1px solid var(--border)',
-               boxShadow: expanded ? '0 1px 0 0 var(--border) inset, 0 8px 24px -16px rgba(30,39,70,0.18)' : 'none'
-             }}>
-          {/* Header */}
-          <button
-            onClick={onToggle}
-            className="w-full text-left px-7 py-6 flex items-center justify-between gap-6 group transition"
-            onMouseEnter={(e) => e.currentTarget.style.background='var(--surface-2)'}
-            onMouseLeave={(e) => e.currentTarget.style.background='transparent'}
-          >
-            <div className="flex items-baseline gap-5 min-w-0 flex-wrap">
-              <span className="font-display text-2xl tracking-tight" style={{color:'var(--ink)'}}>
-                {part.label}
-              </span>
-              <span className="text-sm tracking-wider" style={{color:'var(--text-muted)'}}>{part.labelKo}</span>
-              <span className="hidden md:inline w-px h-4" style={{background:'var(--border-strong)'}}></span>
-              <span className="text-xs tracking-wide" style={{color:'var(--text-muted)'}}>
-                {members.map((m, i) => (
-                  <span key={m.id}>
-                    {m.name} <span style={{color:'var(--text-faint)'}}>{m.title}</span>
-                    {i < members.length - 1 && <span style={{color:'var(--text-faint)'}}> · </span>}
-                  </span>
-                ))}
-              </span>
-            </div>
-            <div className="flex items-center gap-6 flex-shrink-0">
-              <div className="hidden sm:flex items-center gap-5 text-xs" style={{color:'var(--text-muted)'}}>
-                <span className="flex items-baseline gap-1.5">
-                  <span style={{fontSize:'10px'}} className="tracking-[0.2em] uppercase">브랜드</span>
-                  <span className="tabular-nums text-sm font-light" style={{color:'var(--ink)'}}>{brands.length}</span>
-                </span>
-
-                {activeTasks > 0 && (
-                  <span className="flex items-baseline gap-1.5">
-                    <span style={{fontSize:'10px'}} className="tracking-[0.2em] uppercase">진행</span>
-                    <span className="tabular-nums text-sm font-light" style={{color:'var(--ink)'}}>{activeTasks}</span>
-                  </span>
-                )}
-              </div>
-              <span className="transition-transform" style={{transform: expanded ? 'rotate(180deg)' : 'rotate(0deg)', color:'var(--ink)'}}>
-                <ChevronDown size={18} strokeWidth={1.5} />
-              </span>
-            </div>
+        <div className="fade-up">
+          <button onClick={onBack}
+                  className="mb-4 inline-flex items-center gap-2 text-xs tracking-wider transition"
+                  style={{color: 'var(--text-muted)'}}
+                  onMouseEnter={(e) => e.currentTarget.style.color = 'var(--ink)'}
+                  onMouseLeave={(e) => e.currentTarget.style.color = 'var(--text-muted)'}>
+            <span style={{fontSize: '14px'}}>←</span> 모든 파트 보기
           </button>
-          {/* Body */}
-          <div
-            className="acc-content"
-            style={{ maxHeight: expanded ? (ref.current?.scrollHeight ? ref.current.scrollHeight + 'px' : '2000px') : '0px' }}
-          >
-            <div ref={ref} className="px-7 pt-2 pb-7" style={{borderTop:'1px solid var(--border)'}}>
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 pt-5">
-                {brands.map(b => (
-                  <BrandCard
-                    key={b.id}
-                    brand={b}
-                    total={stats.byBrand[b.id] || 0}
-                    active={stats.byBrandActive[b.id] || 0}
-                    brandTasks={tasks.filter(t => t.brandId === b.id && t.status !== 'done')}
-                    onClick={() => onOpenBrand(b.id)}
-                  />
-                ))}
+          <div className="rounded-lg overflow-hidden mb-7"
+               style={{
+                 background: `linear-gradient(135deg, ${t.from} 0%, ${t.to} 100%)`,
+                 color: 'white',
+                 boxShadow: '0 1px 2px rgba(30,39,70,0.06), 0 18px 40px -22px rgba(30,39,70,0.32)'
+               }}>
+            <div className="hero-overlay" style={{position:'relative', height:0}}></div>
+            <div className="relative px-9 py-10 flex items-end justify-between gap-6 flex-wrap">
+              <div>
+                <div className="text-xs font-eyebrow uppercase mb-3" style={{color: 'rgba(255,255,255,0.65)'}}>
+                  {part.label} · {part.labelKo}
+                </div>
+                <h2 className="font-display tracking-tight mb-2" style={{fontSize: '44px', lineHeight: 1}}>
+                  {t.en}
+                </h2>
+                <div className="text-sm mb-4" style={{color: 'rgba(255,255,255,0.78)'}}>{t.sub}</div>
+                <div className="text-xs" style={{color: 'rgba(255,255,255,0.6)'}}>
+                  {members.map(m => `${m.name} ${m.title}`).join(' · ')}
+                </div>
+              </div>
+              <div className="flex items-baseline gap-6">
+                <div>
+                  <div className="font-display tabular-nums" style={{fontSize: '36px', lineHeight: 1, fontWeight: 300}}>{brands.length}</div>
+                  <div className="text-xs font-eyebrow uppercase mt-1" style={{color: 'rgba(255,255,255,0.55)'}}>Brands</div>
+                </div>
+                <div>
+                  <div className="font-display tabular-nums" style={{fontSize: '36px', lineHeight: 1, fontWeight: 300}}>{totalActive}</div>
+                  <div className="text-xs font-eyebrow uppercase mt-1" style={{color: 'rgba(255,255,255,0.55)'}}>Active</div>
+                </div>
+                <div>
+                  <div className="font-display tabular-nums" style={{fontSize: '36px', lineHeight: 1, fontWeight: 300}}>{total}</div>
+                  <div className="text-xs font-eyebrow uppercase mt-1" style={{color: 'rgba(255,255,255,0.55)'}}>Total</div>
+                </div>
               </div>
             </div>
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+            {brands.map(b => (
+              <BrandCard
+                key={b.id}
+                brand={b}
+                total={stats.byBrand[b.id] || 0}
+                active={stats.byBrandActive[b.id] || 0}
+                brandTasks={tasks.filter(task => task.brandId === b.id && task.status !== 'done')}
+                onClick={() => onOpenBrand(b.id)}
+              />
+            ))}
           </div>
         </div>
       );
@@ -559,17 +604,16 @@
       return (
         <button
           onClick={onClick}
-          className="group relative text-left rounded-sm p-4 min-h-[110px] flex flex-col justify-between transition"
+          className="group relative text-left rounded-sm p-4 flex flex-col justify-between transition"
           style={{
             background:'var(--surface)',
             border: '1px solid var(--border)',
-            boxShadow: 'none',
+            minHeight: '110px',
           }}
           onMouseEnter={(e) => { e.currentTarget.style.borderColor='var(--ink)'; e.currentTarget.style.background='var(--surface-2)'; }}
           onMouseLeave={(e) => { e.currentTarget.style.borderColor='var(--border)'; e.currentTarget.style.background='var(--surface)'; }}
         >
           <div className="absolute top-2.5 right-2.5 flex items-center gap-1">
-
             {brand.active && (
               <span title="신규/액티브" className="w-1.5 h-1.5 rounded-full" style={{background:'#7a8c5e'}}></span>
             )}
@@ -581,10 +625,7 @@
             )}
           </div>
           <div>
-            <h3 className="text-base mb-1"
-                style={{color:'var(--ink)', fontWeight: 500}}>
-              {brand.name}
-            </h3>
+            <h3 className="text-base mb-1" style={{color:'var(--ink)', fontWeight: 500}}>{brand.name}</h3>
             <p className="text-[10px] tracking-[0.2em] uppercase font-eyebrow" style={{color:'var(--text-faint)'}}>
               {active > 0 ? `Active · ${active}` : 'No tasks'}
             </p>
@@ -605,9 +646,6 @@
       );
     }
 
-    /* ============================================================
-       MEMBERS VIEW — uniform compact cards
-       ============================================================ */
     function MembersView({ tasks, stats, onOpenMember }) {
       const groups = [
         { id: 'head', label: 'Leadership', sub: '부서장 · 팀장', members: MEMBERS.filter(m => m.group === 'head') },
