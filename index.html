@@ -306,14 +306,32 @@
 
       return (
         <div className="min-h-screen" style={{background:'var(--bg)', color:'var(--text)'}}>
-          <Header
-            view={view} setView={setView}
-            stats={stats}
-            showHidden={showHidden} setShowHidden={setShowHidden}
-            onNew={() => setShowAdd(true)}
-          />
+          <Header view={view} setView={setView} />
 
           <main className="max-w-6xl mx-auto px-8 py-12">
+            <div className="mb-8 pb-5 flex items-end justify-between gap-4 flex-wrap" style={{borderBottom:'1px solid var(--border)'}}>
+              <h2 className="font-display text-3xl tracking-tight" style={{color:'var(--ink)'}}>
+                {view === 'brands' ? '브랜드 포트폴리오' : '담당자별 아젠다'}
+              </h2>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setShowHidden(s => !s)}
+                  className="text-xs px-3.5 py-1.5 rounded-full border transition tracking-wide"
+                  style={{
+                    borderColor: showHidden ? 'var(--ink)' : 'var(--border-strong)',
+                    background: showHidden ? 'var(--ink)' : 'transparent',
+                    color: showHidden ? 'white' : 'var(--text-muted)',
+                  }}>
+                  완료 {showHidden ? '표시' : '숨김'}
+                </button>
+                <button
+                  onClick={() => setShowAdd(true)}
+                  className="text-xs px-4 py-1.5 rounded-full transition tracking-wide flex items-center gap-1.5"
+                  style={{background:'var(--ink)', color:'white'}}>
+                  <Plus size={12} strokeWidth={2.2} /> 새 작업
+                </button>
+              </div>
+            </div>
             {view === 'brands' ? (
               <BrandsView
                 tasks={tasks}
@@ -376,7 +394,7 @@
     /* ============================================================
        HEADER (Grace-style brand bar)
        ============================================================ */
-    function Header({ view, setView, stats, showHidden, setShowHidden, onNew }) {
+    function Header({ view, setView }) {
       const [scrolled, setScrolled] = useState(false);
       useEffect(() => {
         const onScroll = () => setScrolled(window.scrollY > 24);
@@ -398,40 +416,20 @@
       return (
         <header className="sticky top-0 z-30 backdrop-blur transition-colors duration-300"
                 style={{background: headerBg, borderBottom: '1px solid ' + borderCol}}>
-          <div className="max-w-6xl mx-auto px-8 py-3 flex items-center justify-between gap-4 flex-wrap">
-            <div className="flex items-center gap-5 min-w-0">
-              <button onClick={reload} className="flex items-center gap-4 group cursor-pointer flex-shrink-0" title="처음으로">
-                <img src={LOGO_SRC} alt="Grace International"
-                     style={{height:'18px', width:'auto', filter: onInk ? 'none' : 'brightness(0)', transition:'filter 0.3s ease'}}
-                     className="opacity-95 group-hover:opacity-100" />
-                <span className="hidden md:inline-block w-px h-4 transition-colors" style={{background: dividerCol}}></span>
-                <span className="hidden md:inline text-xs font-eyebrow uppercase transition-colors"
-                      style={{color: mutedCol, fontWeight: 500}}>
-                  Brand Management
-                </span>
-              </button>
-              <div className="flex items-center">
-                <TabBtn active={view === 'brands'}  onClick={() => setView('brands')}  label="브랜드" sub="Brands" onInk={onInk} />
-                <TabBtn active={view === 'members'} onClick={() => setView('members')} label="담당자" sub="People" onInk={onInk} />
-              </div>
-            </div>
-            <div className="flex items-center gap-2 flex-shrink-0">
-              <button
-                onClick={() => setShowHidden(s => !s)}
-                className="text-xs px-3 py-1.5 rounded-full border transition tracking-wide"
-                style={{
-                  borderColor: showHidden ? (onInk ? 'rgba(255,255,255,0.55)' : 'var(--ink)') : borderCol,
-                  background: showHidden ? (onInk ? 'rgba(255,255,255,0.12)' : 'var(--ink)') : 'transparent',
-                  color: showHidden ? 'white' : mutedCol,
-                }}>
-                완료 {showHidden ? '표시' : '숨김'}
-              </button>
-              <button
-                onClick={onNew}
-                className="text-xs px-3.5 py-1.5 rounded-full transition tracking-wide flex items-center gap-1.5"
-                style={{background: onInk ? 'white' : 'var(--ink)', color: onInk ? 'var(--ink)' : 'white'}}>
-                <Plus size={12} strokeWidth={2.2} /> 새 작업
-              </button>
+          <div className="max-w-6xl mx-auto px-8 py-5 flex items-center justify-between gap-6">
+            <button onClick={reload} className="flex items-center gap-4 group cursor-pointer flex-shrink-0" title="처음으로">
+              <img src={LOGO_SRC} alt="Grace International"
+                   style={{height:'22px', width:'auto', filter: onInk ? 'none' : 'brightness(0)', transition:'filter 0.3s ease'}}
+                   className="opacity-95 group-hover:opacity-100" />
+              <span className="hidden md:inline-block w-px h-5 transition-colors" style={{background: dividerCol}}></span>
+              <span className="hidden md:inline text-xs font-eyebrow uppercase transition-colors"
+                    style={{color: mutedCol, fontWeight: 500}}>
+                Brand Management
+              </span>
+            </button>
+            <div className="flex items-center">
+              <TabBtn active={view === 'brands'}  onClick={() => setView('brands')}  label="브랜드" sub="Brands" onInk={onInk} />
+              <TabBtn active={view === 'members'} onClick={() => setView('members')} label="담당자" sub="People" onInk={onInk} last />
             </div>
           </div>
         </header>
@@ -448,13 +446,13 @@
       );
     }
 
-    function TabBtn({ active, onClick, label, sub, onInk }) {
+    function TabBtn({ active, onClick, label, sub, onInk, last }) {
       const activeCol = onInk ? 'white' : 'var(--ink)';
       const inactiveCol = onInk ? 'rgba(255,255,255,0.62)' : 'var(--text-muted)';
       const subCol = onInk ? 'rgba(255,255,255,0.45)' : 'var(--text-faint)';
       const underline = onInk ? 'white' : 'var(--ink)';
       return (
-        <button onClick={onClick} className="px-1 py-1.5 mr-7 transition group relative">
+        <button onClick={onClick} className={`px-1 py-2 transition group relative ${last ? '' : 'mr-7'}`}>
           <div className="flex items-baseline gap-2">
             <span className={`text-sm tracking-wider transition ${active ? '' : 'group-hover:opacity-70'}`}
                   style={{color: active ? activeCol : inactiveCol, fontWeight: active ? 500 : 400}}>
@@ -476,7 +474,6 @@
     function BrandsView({ tasks, stats, expandedParts, onTogglePart, showHidden, onOpenBrand }) {
       return (
         <div className="space-y-5">
-          <SectionLabel title="브랜드 포트폴리오" />
           {PARTS.map(part => (
             <PartAccordion
               key={part.id}
@@ -642,8 +639,6 @@
     function MembersView({ tasks, stats, showHidden, onOpenMember }) {
       return (
         <div className="space-y-10">
-          <SectionLabel title="담당자별 아젠다" />
-
           {/* Leadership */}
           <div>
             <GroupHeader text="Leadership" sub="부서장 · 팀장" />
