@@ -136,19 +136,19 @@
     const MEMBERS = [
       { id: 'lee_dh',  name: '이동현', title: '차장', role: '부서장', group: 'head' },
       { id: 'park_hb', name: '박형배', title: '차장', role: '팀장',   group: 'head' },
-      { id: 'kim_jw',  name: '김지원', title: '대리', role: '파트1',  group: 'part1' },
-      { id: 'jung_dh', name: '정단희', title: '주임', role: '파트1',  group: 'part1' },
-      { id: 'kim_hj',  name: '김혜진', title: '대리', role: '파트2',  group: 'part2' },
-      { id: 'shin_cy', name: '신채윤', title: '대리', role: '파트2',  group: 'part2' },
-      { id: 'kwak_nh', name: '곽나현', title: '주임', role: '파트2',  group: 'part2' },
-      { id: 'yang_sb', name: '양승비', title: '주임', role: '파트3',  group: 'part3' },
-      { id: 'noh_km',  name: '노경민', title: '사원', role: '파트3',  group: 'part3' },
+      { id: 'kim_jw',  name: '김지원', title: '대리', role: 'Pod 1',  group: 'part1' },
+      { id: 'jung_dh', name: '정단희', title: '주임', role: 'Pod 1',  group: 'part1' },
+      { id: 'kim_hj',  name: '김혜진', title: '대리', role: 'Pod 2',  group: 'part2' },
+      { id: 'shin_cy', name: '신채윤', title: '대리', role: 'Pod 2',  group: 'part2' },
+      { id: 'kwak_nh', name: '곽나현', title: '주임', role: 'Pod 2',  group: 'part2' },
+      { id: 'yang_sb', name: '양승비', title: '주임', role: 'Pod 3',  group: 'part3' },
+      { id: 'noh_km',  name: '노경민', title: '사원', role: 'Pod 3',  group: 'part3' },
     ];
 
     const PARTS = [
-      { id: 'part1', label: 'Part I',   labelKo: '파트1', members: ['kim_jw', 'jung_dh'] },
-      { id: 'part2', label: 'Part II',  labelKo: '파트2', members: ['kim_hj', 'shin_cy', 'kwak_nh'] },
-      { id: 'part3', label: 'Part III', labelKo: '파트3', members: ['yang_sb', 'noh_km'] },
+      { id: 'part1', label: 'Pod I',   labelKo: 'Pod 1', members: ['kim_jw', 'jung_dh'] },
+      { id: 'part2', label: 'Pod II',  labelKo: 'Pod 2', members: ['kim_hj', 'shin_cy', 'kwak_nh'] },
+      { id: 'part3', label: 'Pod III', labelKo: 'Pod 3', members: ['yang_sb', 'noh_km'] },
     ];
 
     const BRANDS = [
@@ -177,7 +177,7 @@
       { id: 'evian',         name: '에비앙',              part: 'part2' },
       { id: 'detclear',      name: '데트클리어',          part: 'part2' },
       { id: 'biogaia',       name: '바이오가이아',        part: 'part3', priority: true },
-      { id: 'flackers',      name: '플랙커스/이마트PB',   part: 'part3', priority: true },
+      { id: 'flackers',      name: '플랙커스/PB',         part: 'part3', priority: true },
       { id: 'yoru',          name: '요루',                part: 'part3' },
       { id: 'shinoru',       name: '시노루',              part: 'part3' },
       { id: 'redsavon',      name: '레드드사봉',          part: 'part3' },
@@ -476,16 +476,15 @@
     }
 
     const PART_THEME = {
-      part1: { from: '#2c3a55', to: '#4a5d85',
-               en: 'Personal Care',     sub: 'Daily Wellness Brands' },
-      part2: { from: '#264540', to: '#46716a',
-               en: 'Beauty & Heritage', sub: 'Premium Lifestyle' },
-      part3: { from: '#523840', to: '#825461',
-               en: 'Health & Living',   sub: 'Wellness Essentials' },
+      part1: { from: '#2c3a55', to: '#4a5d85', numeral: 'I' },
+      part2: { from: '#264540', to: '#46716a', numeral: 'II' },
+      part3: { from: '#523840', to: '#825461', numeral: 'III' },
     };
 
     function PartHeroCard({ part, members, brands, tasks, stats, expanded, onClick, onClose, onOpenBrand }) {
       const t = PART_THEME[part.id];
+      const priorityBrands = brands.filter(b => b.priority);
+      const otherCount = brands.length - priorityBrands.length;
       const totalActive = stats.byPartActive[part.id] || 0;
       const total = stats.byPart[part.id] || 0;
       const gradient = `linear-gradient(165deg, ${t.from} 0%, ${t.to} 100%)`;
@@ -502,18 +501,23 @@
                         style={{color: 'rgba(255,255,255,0.7)'}}
                         onMouseEnter={(e) => e.currentTarget.style.color = 'white'}
                         onMouseLeave={(e) => e.currentTarget.style.color = 'rgba(255,255,255,0.7)'}>
-                  <span style={{fontSize: '13px'}}>←</span> 모든 파트 보기
+                  <span style={{fontSize: '13px'}}>←</span> 모든 Pod 보기
                 </button>
                 <div className="flex items-end justify-between gap-6 flex-wrap">
                   <div>
-                    <div className="text-xs font-eyebrow uppercase mb-2" style={{color: 'rgba(255,255,255,0.65)'}}>
-                      {part.label} · {part.labelKo}
+                    <div className="text-xs font-eyebrow uppercase mb-2" style={{color: 'rgba(255,255,255,0.6)'}}>
+                      POD
                     </div>
-                    <h2 className="font-display tracking-tight mb-1.5" style={{fontSize: '40px', lineHeight: 1}}>
-                      {t.en}
+                    <h2 className="font-display tracking-tight" style={{fontSize: '52px', lineHeight: 1, marginBottom: '14px'}}>
+                      {t.numeral}
                     </h2>
-                    <div className="text-sm mb-3" style={{color: 'rgba(255,255,255,0.78)'}}>{t.sub}</div>
-                    <div className="text-xs" style={{color: 'rgba(255,255,255,0.6)'}}>
+                    <div className="text-base mb-1" style={{color: 'rgba(255,255,255,0.92)', fontWeight: 500}}>
+                      {priorityBrands.map(b => b.name).join(' · ')}
+                    </div>
+                    {otherCount > 0 && (
+                      <div className="text-xs" style={{color: 'rgba(255,255,255,0.6)'}}>+ {otherCount} brands</div>
+                    )}
+                    <div className="text-xs mt-3" style={{color: 'rgba(255,255,255,0.6)'}}>
                       {members.map(m => `${m.name} ${m.title}`).join(' · ')}
                     </div>
                   </div>
@@ -565,13 +569,18 @@
           <div className="hero-overlay"></div>
           <div className="relative h-full flex flex-col justify-between p-7" style={{minHeight: '420px'}}>
             <div>
-              <div className="text-xs font-eyebrow uppercase mb-4" style={{color: 'rgba(255,255,255,0.65)'}}>
-                {part.label}
+              <div className="text-xs font-eyebrow uppercase mb-3" style={{color: 'rgba(255,255,255,0.6)'}}>
+                POD
               </div>
-              <h3 className="font-display tracking-tight mb-1" style={{fontSize: '34px', lineHeight: 1.05}}>
-                {t.en}
+              <h3 className="font-display tracking-tight" style={{fontSize: '64px', lineHeight: 0.95, marginBottom: '20px'}}>
+                {t.numeral}
               </h3>
-              <div className="text-sm" style={{color: 'rgba(255,255,255,0.78)'}}>{t.sub}</div>
+              <div className="text-base leading-snug mb-1" style={{color: 'rgba(255,255,255,0.94)', fontWeight: 500}}>
+                {priorityBrands.map(b => b.name).join(' · ')}
+              </div>
+              {otherCount > 0 && (
+                <div className="text-xs" style={{color: 'rgba(255,255,255,0.55)'}}>+ {otherCount} brands</div>
+              )}
             </div>
             <div>
               <div className="mb-5 text-xs leading-relaxed" style={{color: 'rgba(255,255,255,0.6)'}}>
