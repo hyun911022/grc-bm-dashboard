@@ -642,14 +642,16 @@
 
           <main className="max-w-6xl mx-auto px-8 py-12">
             <div className="mb-8 pb-5 flex items-end justify-between gap-4 flex-wrap" style={{borderBottom:'1px solid var(--border)'}}>
-              <h2 className="font-display text-3xl tracking-tight" style={{color:'var(--ink)'}}>
+              <h2 className="font-display text-xl tracking-tight" style={{color:'var(--text-faint)'}}>
                 {view === 'brands' ? '브랜드 포트폴리오' : '담당자별 아젠다'}
               </h2>
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => setShowAdd(true)}
                   className="text-xs px-4 py-1.5 rounded-full transition tracking-wide flex items-center gap-1.5"
-                  style={{background:'var(--ink)', color:'white'}}>
+                  style={{background:'transparent', color:'var(--text-faint)', border:'1px solid var(--border-strong)'}}
+                  onMouseEnter={(e)=>{e.currentTarget.style.color='var(--text-muted)';e.currentTarget.style.borderColor='var(--text-faint)';}}
+                  onMouseLeave={(e)=>{e.currentTarget.style.color='var(--text-faint)';e.currentTarget.style.borderColor='var(--border-strong)';}}>
                   <Plus size={12} strokeWidth={2.2} /> 새 작업
                 </button>
               </div>
