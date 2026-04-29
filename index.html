@@ -649,9 +649,9 @@
                 <button
                   onClick={() => setShowAdd(true)}
                   className="text-xs px-4 py-1.5 rounded-full transition tracking-wide flex items-center gap-1.5"
-                  style={{background:'transparent', color:'var(--text-faint)', border:'1px solid var(--border-strong)'}}
-                  onMouseEnter={(e)=>{e.currentTarget.style.color='var(--text-muted)';e.currentTarget.style.borderColor='var(--text-faint)';}}
-                  onMouseLeave={(e)=>{e.currentTarget.style.color='var(--text-faint)';e.currentTarget.style.borderColor='var(--border-strong)';}}>
+                  style={{background:'transparent', color:'var(--ink)', border:'1px solid var(--ink)', fontWeight:500}}
+                  onMouseEnter={(e)=>{e.currentTarget.style.background='var(--ink)';e.currentTarget.style.color='white';}}
+                  onMouseLeave={(e)=>{e.currentTarget.style.background='transparent';e.currentTarget.style.color='var(--ink)';}}>
                   <Plus size={12} strokeWidth={2.2} /> 새 작업
                 </button>
               </div>
