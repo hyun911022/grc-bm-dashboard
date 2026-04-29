@@ -398,52 +398,38 @@
       return (
         <header className="sticky top-0 z-30 backdrop-blur transition-colors duration-300"
                 style={{background: headerBg, borderBottom: '1px solid ' + borderCol}}>
-          <div className="max-w-6xl mx-auto px-8 pt-7 pb-5 flex items-center justify-between flex-wrap gap-4">
-            <button onClick={reload}
-                    className="flex items-center gap-5 group cursor-pointer"
-                    title="처음으로">
-              <img src={LOGO_SRC} alt="Grace International"
-                   style={{height:'24px', width:'auto', filter: onInk ? 'none' : 'brightness(0)', transition:'filter 0.3s ease'}}
-                   className="opacity-95 group-hover:opacity-100" />
-              <span className="hidden md:inline-block w-px h-6 transition-colors" style={{background: dividerCol}}></span>
-              <div className="hidden md:block text-left">
-                <div className="text-xs font-eyebrow uppercase transition-colors"
-                     style={{color: mutedCol, fontWeight: 500}}>
+          <div className="max-w-6xl mx-auto px-8 py-3 flex items-center justify-between gap-4 flex-wrap">
+            <div className="flex items-center gap-5 min-w-0">
+              <button onClick={reload} className="flex items-center gap-4 group cursor-pointer flex-shrink-0" title="처음으로">
+                <img src={LOGO_SRC} alt="Grace International"
+                     style={{height:'18px', width:'auto', filter: onInk ? 'none' : 'brightness(0)', transition:'filter 0.3s ease'}}
+                     className="opacity-95 group-hover:opacity-100" />
+                <span className="hidden md:inline-block w-px h-4 transition-colors" style={{background: dividerCol}}></span>
+                <span className="hidden md:inline text-xs font-eyebrow uppercase transition-colors"
+                      style={{color: mutedCol, fontWeight: 500}}>
                   Brand Management
-                </div>
-                <div className="text-xs tracking-wider mt-0.5 transition-colors" style={{color: faintCol}}>
-                  부서 운영 콘솔
-                </div>
+                </span>
+              </button>
+              <div className="flex items-center">
+                <TabBtn active={view === 'brands'}  onClick={() => setView('brands')}  label="브랜드" sub="Brands" onInk={onInk} />
+                <TabBtn active={view === 'members'} onClick={() => setView('members')} label="담당자" sub="People" onInk={onInk} />
               </div>
-            </button>
-          </div>
-
-          <div className="max-w-6xl mx-auto px-8 flex items-center justify-between flex-wrap"
-               style={{borderTop: '1px solid ' + borderCol}}>
-            <div className="flex">
-              <TabBtn active={view === 'brands'}  onClick={() => setView('brands')}  label="브랜드" sub="Brands" onInk={onInk} />
-              <TabBtn active={view === 'members'} onClick={() => setView('members')} label="담당자" sub="People" onInk={onInk} />
             </div>
-            <div className="flex items-center gap-2 py-3">
+            <div className="flex items-center gap-2 flex-shrink-0">
               <button
                 onClick={() => setShowHidden(s => !s)}
-                className="text-xs px-3.5 py-1.5 rounded-full border transition tracking-wide"
+                className="text-xs px-3 py-1.5 rounded-full border transition tracking-wide"
                 style={{
                   borderColor: showHidden ? (onInk ? 'rgba(255,255,255,0.55)' : 'var(--ink)') : borderCol,
                   background: showHidden ? (onInk ? 'rgba(255,255,255,0.12)' : 'var(--ink)') : 'transparent',
-                  color: showHidden ? (onInk ? 'white' : 'white') : mutedCol,
-                }}
-              >
+                  color: showHidden ? 'white' : mutedCol,
+                }}>
                 완료 {showHidden ? '표시' : '숨김'}
               </button>
               <button
                 onClick={onNew}
-                className="text-xs px-4 py-1.5 rounded-full transition tracking-wide flex items-center gap-1.5"
-                style={{
-                  background: onInk ? 'white' : 'var(--ink)',
-                  color: onInk ? 'var(--ink)' : 'white'
-                }}
-              >
+                className="text-xs px-3.5 py-1.5 rounded-full transition tracking-wide flex items-center gap-1.5"
+                style={{background: onInk ? 'white' : 'var(--ink)', color: onInk ? 'var(--ink)' : 'white'}}>
                 <Plus size={12} strokeWidth={2.2} /> 새 작업
               </button>
             </div>
@@ -468,7 +454,7 @@
       const subCol = onInk ? 'rgba(255,255,255,0.45)' : 'var(--text-faint)';
       const underline = onInk ? 'white' : 'var(--ink)';
       return (
-        <button onClick={onClick} className="px-1 py-4 mr-10 transition group relative">
+        <button onClick={onClick} className="px-1 py-1.5 mr-7 transition group relative">
           <div className="flex items-baseline gap-2">
             <span className={`text-sm tracking-wider transition ${active ? '' : 'group-hover:opacity-70'}`}
                   style={{color: active ? activeCol : inactiveCol, fontWeight: active ? 500 : 400}}>
