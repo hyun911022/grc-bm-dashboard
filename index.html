@@ -216,6 +216,7 @@
 
     const STORAGE_KEY = 'grc-bm-tasks-v1';
     const USER_KEY = 'grc-bm-current-user-v1';
+    const PINS_KEY = 'grc-bm-pins-v1';
 
     // Mention syntax: @[이름](id). Extract ids referenced.
     const extractMentionIds = (text) => {
@@ -262,6 +263,101 @@
     /* ============================================================
        MAIN APP
        ============================================================ */
+    function LoginScreen({ pins, onLogin }) {
+      const [stage, setStage] = useState('pick'); // pick | pin
+      const [picked, setPicked] = useState(null);
+      const [pin, setPin] = useState('');
+      const [err, setErr] = useState('');
+      const inputRef = useRef(null);
+
+      const choose = (id) => {
+        setPicked(id);
+        setPin('');
+        setErr('');
+        setStage('pin');
+        setTimeout(() => inputRef.current && inputRef.current.focus(), 50);
+      };
+      const submit = (e) => {
+        if (e) e.preventDefault();
+        if (pin.length !== 4) return;
+        if (onLogin(picked, pin)) {
+          // success - parent will re-render
+        } else {
+          setErr('비밀번호가 올바르지 않습니다');
+          setPin('');
+        }
+      };
+
+      const groups = [
+        { id: 'head',  label: 'Leadership', members: MEMBERS.filter(m => m.group === 'head') },
+        ...PARTS.map(p => ({ id: p.id, label: 'Pod ' + PART_THEME[p.id].numeral, members: p.members.map(memberById) })),
+      ];
+      const me = picked ? memberById(picked) : null;
+
+      return (
+        <div className="min-h-screen flex items-center justify-center px-6" style={{background:'var(--bg)'}}>
+          <div className="w-full" style={{maxWidth: '720px'}}>
+            <div className="text-center mb-10">
+              <img src={LOGO_SRC} alt="Grace International" style={{height:'24px', filter:'brightness(0)', opacity: 0.85, margin: '0 auto'}} />
+              <div className="text-xs font-eyebrow uppercase mt-3" style={{color:'var(--text-muted)'}}>BM Operations Console</div>
+            </div>
+            {stage === 'pick' && (
+              <div className="rounded-lg p-8" style={{background:'var(--surface)', border:'1px solid var(--border)'}}>
+                <h2 className="font-display text-2xl tracking-tight mb-6" style={{color:'var(--ink)'}}>본인을 선택하세요</h2>
+                <div className="space-y-5">
+                  {groups.map(g => (
+                    <div key={g.id}>
+                      <div className="text-xs font-eyebrow uppercase mb-2" style={{color:'var(--text-faint)'}}>{g.label}</div>
+                      <div className="flex flex-wrap gap-2">
+                        {g.members.map(m => (
+                          <button key={m.id} onClick={() => choose(m.id)}
+                                  className="px-3.5 py-2 rounded-full transition text-sm tracking-wide"
+                                  style={{background:'var(--surface)', border:'1px solid var(--border-strong)', color:'var(--text)'}}
+                                  onMouseEnter={(e)=>{e.currentTarget.style.borderColor='var(--ink)';e.currentTarget.style.background='var(--surface-2)';}}
+                                  onMouseLeave={(e)=>{e.currentTarget.style.borderColor='var(--border-strong)';e.currentTarget.style.background='var(--surface)';}}>
+                            <span style={{fontWeight: 500, color:'var(--ink)'}}>{m.name}</span>
+                            <span style={{color:'var(--text-muted)', marginLeft:'6px', fontSize:'12px'}}>{m.title}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            {stage === 'pin' && (
+              <form onSubmit={submit} className="rounded-lg p-8" style={{background:'var(--surface)', border:'1px solid var(--border)'}}>
+                <button type="button" onClick={() => { setStage('pick'); setPicked(null); }}
+                        className="text-xs tracking-wider mb-5 transition" style={{color:'var(--text-muted)'}}
+                        onMouseEnter={(e)=>e.currentTarget.style.color='var(--ink)'}
+                        onMouseLeave={(e)=>e.currentTarget.style.color='var(--text-muted)'}>
+                  ← 다시 선택
+                </button>
+                <div className="text-xs font-eyebrow uppercase mb-1" style={{color:'var(--text-faint)'}}>{me?.role}</div>
+                <h2 className="font-display text-2xl tracking-tight mb-6" style={{color:'var(--ink)'}}>
+                  {me?.name} <span className="text-sm font-normal" style={{color:'var(--text-muted)'}}>{me?.title}</span>
+                </h2>
+                <label className="text-xs font-eyebrow uppercase block mb-2" style={{color:'var(--text-muted)'}}>비밀번호 (4자리)</label>
+                <input ref={inputRef} type="password" inputMode="numeric" maxLength={4} pattern="[0-9]{4}"
+                       value={pin}
+                       onChange={(e) => { setErr(''); setPin(e.target.value.replace(/[^0-9]/g, '').slice(0, 4)); }}
+                       autoComplete="off"
+                       className="w-full rounded-sm px-4 py-3 text-2xl tracking-[0.5em] outline-none transition tabular-nums text-center"
+                       style={{background:'var(--surface)', border:'1px solid var(--border-strong)', color:'var(--ink)'}} />
+                {err && <p className="text-xs mt-2" style={{color:'#a83247'}}>{err}</p>}
+                <p className="text-xs mt-2" style={{color:'var(--text-faint)'}}>초기 비밀번호는 0000입니다. 잊으셨다면 이동현 차장에게 리셋 요청하세요.</p>
+                <button type="submit" disabled={pin.length !== 4}
+                        className="w-full mt-5 py-2.5 rounded-sm transition text-sm tracking-wide disabled:opacity-30 disabled:cursor-not-allowed"
+                        style={{background:'var(--ink)', color:'white'}}>
+                  로그인
+                </button>
+              </form>
+            )}
+          </div>
+        </div>
+      );
+    }
+
     function App() {
       const [view, setView] = useState('brands');
       const [tasks, setTasks] = useState([]);
@@ -270,7 +366,8 @@
       const [openMember, setOpenMember] = useState(null);
       const [showAdd, setShowAdd] = useState(false);
       const [editingTask, setEditingTask] = useState(null);
-      const [currentUser, setCurrentUser] = useState('lee_dh');
+      const [currentUser, setCurrentUser] = useState(null);
+      const [pins, setPins] = useState({});
 
       useEffect(() => {
         try {
@@ -286,16 +383,34 @@
             }));
             setTasks(migrated);
           }
-          const u = localStorage.getItem(USER_KEY);
-          if (u && MEMBERS.find(m => m.id === u)) setCurrentUser(u);
+          const pRaw = localStorage.getItem(PINS_KEY);
+          const loadedPins = pRaw ? JSON.parse(pRaw) : {};
+          // Default 0000 for any member without a pin
+          const filled = {};
+          MEMBERS.forEach(mm => { filled[mm.id] = loadedPins[mm.id] || '0000'; });
+          setPins(filled);
+          // Persist defaults if first run
+          if (!pRaw) localStorage.setItem(PINS_KEY, JSON.stringify(filled));
         } catch (e) {}
         setLoaded(true);
       }, []);
 
-      const setUser = (id) => {
+      const login = (id, pin) => {
+        if (pins[id] !== pin) return false;
         setCurrentUser(id);
         try { localStorage.setItem(USER_KEY, id); } catch {}
+        return true;
       };
+      const logout = () => {
+        setCurrentUser(null);
+        try { localStorage.removeItem(USER_KEY); } catch {}
+      };
+      const setPin = (id, pin) => {
+        const next = { ...pins, [id]: pin };
+        setPins(next);
+        try { localStorage.setItem(PINS_KEY, JSON.stringify(next)); } catch {}
+      };
+      const resetPin = (id) => setPin(id, '0000');
 
       const addComment = (taskId, body) => {
         const t = tasks.find(x => x.id === taskId);
@@ -351,7 +466,7 @@
 
 
       const stats = useMemo(() => {
-        const byBrand = {}, byBrandActive = {}, byMember = {}, byMemberActive = {};
+        const byBrand = {}, byBrandActive = {}, byMember = {}, byMemberActive = {}, byMemberMentions = {};
         const byPart = {}, byPartActive = {};
         tasks.forEach(t => {
           byBrand[t.brandId] = (byBrand[t.brandId] || 0) + 1;
@@ -360,6 +475,15 @@
           ids.forEach(aid => {
             byMember[aid] = (byMember[aid] || 0) + 1;
             if (t.status !== 'done') byMemberActive[aid] = (byMemberActive[aid] || 0) + 1;
+          });
+          // count mentions in description + comments
+          extractMentionIds(t.description || '').forEach(mid => {
+            byMemberMentions[mid] = (byMemberMentions[mid] || 0) + 1;
+          });
+          (t.comments || []).forEach(c => {
+            extractMentionIds(c.body || '').forEach(mid => {
+              byMemberMentions[mid] = (byMemberMentions[mid] || 0) + 1;
+            });
           });
           const b = brandById(t.brandId);
           if (b) {
@@ -370,7 +494,7 @@
         const active = tasks.filter(t => t.status !== 'done').length;
         const inProgress = tasks.filter(t => t.status === 'in_progress').length;
         const overdue = tasks.filter(t => t.status !== 'done' && t.dueDate && daysUntil(t.dueDate) < 0).length;
-        return { byBrand, byBrandActive, byMember, byMemberActive, byPart, byPartActive, active, inProgress, overdue, total: tasks.length };
+        return { byBrand, byBrandActive, byMember, byMemberActive, byMemberMentions, byPart, byPartActive, active, inProgress, overdue, total: tasks.length };
       }, [tasks]);
 
       if (!loaded) {
@@ -380,10 +504,13 @@
           </div>
         );
       }
+      if (!currentUser) {
+        return <LoginScreen pins={pins} onLogin={login} />;
+      }
 
       return (
         <div className="min-h-screen" style={{background:'var(--bg)', color:'var(--text)'}}>
-          <Header view={view} setView={setView} currentUser={currentUser} onSetUser={setUser} />
+          <Header view={view} setView={setView} currentUser={currentUser} onLogout={logout} pins={pins} onSetPin={setPin} onResetPin={resetPin} />
 
           <main className="max-w-6xl mx-auto px-8 py-12">
             <div className="mb-8 pb-5 flex items-end justify-between gap-4 flex-wrap" style={{borderBottom:'1px solid var(--border)'}}>
@@ -425,7 +552,7 @@
               tasks={tasks.filter(t => t.brandId === openBrand)}
               onClose={() => setOpenBrand(null)}
               onAdd={addTask} onUpdate={updateTask} onDelete={deleteTask}
-              onCycleStatus={cycleStatus} onEdit={(t) => setEditingTask(t)}
+              onChangeStatus={(id, next) => updateTask(id, { status: next })} onEdit={(t) => setEditingTask(t)}
               currentUser={currentUser}
               onAddComment={addComment} onDeleteComment={deleteComment}
             />
@@ -437,15 +564,17 @@
               allTasks={tasks}
               onClose={() => setOpenMember(null)}
               onUpdate={updateTask} onDelete={deleteTask}
-              onCycleStatus={cycleStatus} onEdit={(t) => setEditingTask(t)}
+              onChangeStatus={(id, next) => updateTask(id, { status: next })} onEdit={(t) => setEditingTask(t)}
               currentUser={currentUser}
               onAddComment={addComment} onDeleteComment={deleteComment}
               onOpenBrand={(id) => { setOpenMember(null); setOpenBrand(id); }}
+              onAssign={(memberId) => { setOpenMember(null); setShowAdd({ assigneeIds: [memberId] }); }}
             />
           )}
           {showAdd && (
             <TaskFormModal
               mode="create" initialBrand={null}
+              initial={typeof showAdd === 'object' ? showAdd : null}
               onClose={() => setShowAdd(false)}
               onSubmit={(data) => { addTask(data); setShowAdd(false); }}
             />
@@ -464,7 +593,7 @@
     /* ============================================================
        HEADER (Grace-style brand bar)
        ============================================================ */
-    function Header({ view, setView, currentUser, onSetUser }) {
+    function Header({ view, setView, currentUser, onLogout, pins, onSetPin, onResetPin }) {
       const reload = () => { window.scrollTo({top:0, behavior:'smooth'}); setView('brands'); setTimeout(() => window.location.reload(), 50); };
       const me = memberById(currentUser);
       const headerBg = 'linear-gradient(180deg, var(--header-from) 0%, var(--header-to) 100%)';
@@ -488,7 +617,7 @@
               </span>
             </button>
             <div className="flex items-center gap-5">
-              <UserPicker currentUser={currentUser} onSetUser={onSetUser} />
+              <UserPicker currentUser={currentUser} onLogout={onLogout} pins={pins} onSetPin={onSetPin} onResetPin={onResetPin} />
               <span className="hidden md:inline-block w-px h-5" style={{background: dividerCol}}></span>
               <div className="flex items-center">
                 <TabBtn active={view === 'brands'}  onClick={() => setView('brands')}  label="브랜드" sub="Brands" />
@@ -510,39 +639,150 @@
       );
     }
 
-    function UserPicker({ currentUser, onSetUser }) {
+    function UserPicker({ currentUser, onLogout, pins, onSetPin, onResetPin }) {
       const [open, setOpen] = useState(false);
+      const [showPwModal, setShowPwModal] = useState(false);
+      const [showAdmin, setShowAdmin] = useState(false);
       const me = memberById(currentUser);
+      const isAdmin = currentUser === 'lee_dh';
       useEffect(() => {
         if (!open) return;
-        const close = (e) => setOpen(false);
+        const close = () => setOpen(false);
         window.addEventListener('click', close);
         return () => window.removeEventListener('click', close);
       }, [open]);
       return (
-        <div className="relative" onClick={(e) => e.stopPropagation()}>
-          <button onClick={() => setOpen(o => !o)}
-                  className="flex items-center gap-2 text-xs px-2.5 py-1.5 rounded-full transition"
-                  style={{background:'rgba(255,255,255,0.08)', color:'rgba(255,255,255,0.85)', border:'1px solid rgba(255,255,255,0.12)'}}>
-            <span className="w-1.5 h-1.5 rounded-full" style={{background:'#7a8c5e'}}></span>
-            <span className="font-medium">{me?.name || '—'}</span>
-            <span style={{color:'rgba(255,255,255,0.55)'}}>{me?.title || ''}</span>
-            <ChevronDown size={11} strokeWidth={1.5} style={{opacity:0.6}} />
-          </button>
-          {open && (
-            <div className="absolute right-0 mt-1 mention-popup" style={{minWidth:'220px'}}>
-              <div className="px-2 py-1.5 text-[10px] font-eyebrow uppercase" style={{color:'var(--text-faint)'}}>나는…</div>
-              {MEMBERS.map(m => (
-                <button key={m.id}
-                        onClick={() => { onSetUser(m.id); setOpen(false); }}
-                        className={`mention-popup-item ${m.id === currentUser ? 'active' : ''}`}>
-                  <span style={{flex:1}}>{m.name} <span className="mention-popup-meta">{m.title}</span></span>
-                  <span className="mention-popup-meta">{m.role}</span>
+        <>
+          <div className="relative" onClick={(e) => e.stopPropagation()}>
+            <button onClick={() => setOpen(o => !o)}
+                    className="flex items-center gap-2 text-xs px-2.5 py-1.5 rounded-full transition"
+                    style={{background:'rgba(255,255,255,0.08)', color:'rgba(255,255,255,0.85)', border:'1px solid rgba(255,255,255,0.12)'}}>
+              <span className="w-1.5 h-1.5 rounded-full" style={{background:'#7a8c5e'}}></span>
+              <span className="font-medium">{me?.name || '—'}</span>
+              <span style={{color:'rgba(255,255,255,0.55)'}}>{me?.title || ''}</span>
+              <ChevronDown size={11} strokeWidth={1.5} style={{opacity:0.6}} />
+            </button>
+            {open && (
+              <div className="absolute right-0 mt-1 mention-popup" style={{minWidth:'200px'}}>
+                <button className="mention-popup-item" onClick={() => { setShowPwModal(true); setOpen(false); }}>
+                  <span style={{flex:1}}>비밀번호 변경</span>
                 </button>
-              ))}
-            </div>
+                {isAdmin && (
+                  <button className="mention-popup-item" onClick={() => { setShowAdmin(true); setOpen(false); }}>
+                    <span style={{flex:1}}>비밀번호 관리 <span className="mention-popup-meta">관리자</span></span>
+                  </button>
+                )}
+                <div style={{height:1, background:'var(--border)', margin:'4px 0'}}></div>
+                <button className="mention-popup-item" onClick={() => { onLogout(); setOpen(false); }}>
+                  <span style={{flex:1, color:'#a83247'}}>로그아웃</span>
+                </button>
+              </div>
+            )}
+          </div>
+          {showPwModal && (
+            <ChangePinModal
+              memberId={currentUser}
+              currentPin={pins[currentUser]}
+              onSave={(newPin) => { onSetPin(currentUser, newPin); setShowPwModal(false); }}
+              onClose={() => setShowPwModal(false)} />
           )}
-        </div>
+          {showAdmin && (
+            <PinAdminModal
+              pins={pins}
+              onResetPin={onResetPin}
+              onClose={() => setShowAdmin(false)} />
+          )}
+        </>
+      );
+    }
+
+    function ChangePinModal({ memberId, currentPin, onSave, onClose }) {
+      const [oldPin, setOldPin] = useState('');
+      const [newPin, setNewPin] = useState('');
+      const [confirm, setConfirm] = useState('');
+      const [err, setErr] = useState('');
+      const submit = (e) => {
+        e.preventDefault();
+        if (oldPin !== currentPin) { setErr('현재 비밀번호가 다릅니다'); return; }
+        if (newPin.length !== 4) { setErr('새 비밀번호는 4자리여야 합니다'); return; }
+        if (newPin !== confirm) { setErr('새 비밀번호가 일치하지 않습니다'); return; }
+        onSave(newPin);
+      };
+      const inputCls = "w-full rounded-sm px-3 py-2 text-base tracking-[0.4em] outline-none transition tabular-nums text-center";
+      const inputStyle = { background:'var(--surface)', border:'1px solid var(--border-strong)', color:'var(--ink)' };
+      return (
+        <Modal onClose={onClose}>
+          <div className="px-8 py-6" style={{borderBottom:'1px solid var(--border)'}}>
+            <div className="text-[10px] tracking-[0.3em] uppercase mb-1.5 font-eyebrow" style={{color:'var(--text-faint)'}}>Change Password</div>
+            <h2 className="font-display text-2xl tracking-tight" style={{color:'var(--ink)'}}>비밀번호 변경</h2>
+          </div>
+          <form onSubmit={submit} className="px-8 py-6 space-y-5">
+            <div>
+              <label className="text-[10px] tracking-[0.2em] uppercase mb-1.5 block" style={{color:'var(--text-muted)'}}>현재 비밀번호</label>
+              <input type="password" inputMode="numeric" maxLength={4} value={oldPin}
+                     onChange={(e) => { setErr(''); setOldPin(e.target.value.replace(/[^0-9]/g,'').slice(0,4)); }}
+                     className={inputCls} style={inputStyle} autoFocus />
+            </div>
+            <div>
+              <label className="text-[10px] tracking-[0.2em] uppercase mb-1.5 block" style={{color:'var(--text-muted)'}}>새 비밀번호 (4자리)</label>
+              <input type="password" inputMode="numeric" maxLength={4} value={newPin}
+                     onChange={(e) => { setErr(''); setNewPin(e.target.value.replace(/[^0-9]/g,'').slice(0,4)); }}
+                     className={inputCls} style={inputStyle} />
+            </div>
+            <div>
+              <label className="text-[10px] tracking-[0.2em] uppercase mb-1.5 block" style={{color:'var(--text-muted)'}}>새 비밀번호 확인</label>
+              <input type="password" inputMode="numeric" maxLength={4} value={confirm}
+                     onChange={(e) => { setErr(''); setConfirm(e.target.value.replace(/[^0-9]/g,'').slice(0,4)); }}
+                     className={inputCls} style={inputStyle} />
+            </div>
+            {err && <p className="text-xs" style={{color:'#a83247'}}>{err}</p>}
+            <div className="flex justify-end gap-3 pt-3" style={{borderTop:'1px solid var(--border)'}}>
+              <button type="button" onClick={onClose} className="text-sm px-4 py-2" style={{color:'var(--text-muted)'}}>취소</button>
+              <button type="submit" className="text-sm px-5 py-2 rounded-sm" style={{background:'var(--ink)', color:'white'}}>변경</button>
+            </div>
+          </form>
+        </Modal>
+      );
+    }
+
+    function PinAdminModal({ pins, onResetPin, onClose }) {
+      return (
+        <Modal onClose={onClose}>
+          <div className="px-8 py-6 flex items-center justify-between" style={{borderBottom:'1px solid var(--border)'}}>
+            <div>
+              <div className="text-[10px] tracking-[0.3em] uppercase mb-1.5 font-eyebrow" style={{color:'var(--text-faint)'}}>Admin · 비밀번호 관리</div>
+              <h2 className="font-display text-2xl tracking-tight" style={{color:'var(--ink)'}}>구성원 비밀번호 리셋</h2>
+            </div>
+            <button onClick={onClose} style={{color:'var(--text-muted)'}}>
+              <XIcon size={18} strokeWidth={1.5} />
+            </button>
+          </div>
+          <div className="px-8 py-6 overflow-y-auto" style={{ maxHeight: '60vh' }}>
+            <p className="text-xs mb-4" style={{color:'var(--text-muted)'}}>각 구성원의 비밀번호를 초기값(0000)으로 리셋할 수 있습니다.</p>
+            <ul className="space-y-2">
+              {MEMBERS.map(m => (
+                <li key={m.id} className="flex items-center justify-between p-3 rounded-sm"
+                    style={{border:'1px solid var(--border)', background:'var(--surface)'}}>
+                  <div>
+                    <div className="text-sm" style={{color:'var(--ink)', fontWeight:500}}>
+                      {m.name} <span style={{color:'var(--text-muted)', fontWeight:400, fontSize:'12px'}}>{m.title}</span>
+                    </div>
+                    <div className="text-[10px] tracking-wide mt-0.5" style={{color:'var(--text-faint)'}}>
+                      {m.role} · 현재 PIN {pins[m.id] === '0000' ? '(초기값)' : '설정됨'}
+                    </div>
+                  </div>
+                  <button onClick={() => { if (confirm(`${m.name}님의 비밀번호를 0000으로 리셋합니다.`)) onResetPin(m.id); }}
+                          className="text-xs px-3 py-1.5 rounded-sm transition tracking-wide"
+                          style={{background:'var(--surface)', border:'1px solid var(--border-strong)', color:'var(--text)'}}
+                          onMouseEnter={(e)=>{e.currentTarget.style.borderColor='var(--ink)';e.currentTarget.style.color='var(--ink)';}}
+                          onMouseLeave={(e)=>{e.currentTarget.style.borderColor='var(--border-strong)';e.currentTarget.style.color='var(--text)';}}>
+                    PIN 리셋
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </Modal>
       );
     }
 
@@ -746,11 +986,9 @@
                 <MemberCard
                   key={m.id}
                   member={m}
-                  total={stats.byMember[m.id] || 0}
                   active={stats.byMemberActive[m.id] || 0}
-                  tasks={tasks.filter(t => (t.assigneeIds || []).includes(m.id) && t.status !== 'done')}
+                  mentionCount={stats.byMemberMentions[m.id] || 0}
                   accent={g.theme.from}
-                  accentSoft={g.theme.to}
                   onClick={() => onOpenMember(m.id)}
                 />
               ))}
@@ -794,11 +1032,7 @@
       );
     }
 
-    function MemberCard({ member, total, active, tasks, onClick, accent, accentSoft }) {
-      const upcoming = tasks
-        .filter(t => t.dueDate && t.status !== 'done')
-        .sort((a, b) => a.dueDate.localeCompare(b.dueDate))
-        .slice(0, 2);
+    function MemberCard({ member, active, mentionCount, onClick, accent }) {
       const isLead = member.group === 'head';
       return (
         <button
@@ -836,32 +1070,16 @@
               <div className="text-[9px] tracking-[0.2em] uppercase font-eyebrow" style={{color:'var(--text-faint)'}}>to-do</div>
             </div>
           </div>
-          <div className="pt-2.5" style={{borderTop:'1px solid var(--border)'}}>
-            {upcoming.length > 0 ? (
-              <ul className="space-y-1">
-                {upcoming.map(t => {
-                  const days = daysUntil(t.dueDate);
-                  return (
-                    <li key={t.id} className="flex items-center justify-between gap-2 text-xs">
-                      <div className="flex items-center gap-1.5 min-w-0">
-                        <span className={`w-1 h-1 rounded-full flex-shrink-0 ${statusOf(t.status).dot}`}></span>
-                        <span className="truncate" style={{color:'var(--text)'}}>{t.title}</span>
-                      </div>
-                      <span className="text-[10px] flex-shrink-0 tabular-nums"
-                            style={{color: days < 0 ? '#a83247' : days <= 3 ? '#a37800' : 'var(--text-faint)'}}>
-                        {fmtDate(t.dueDate)}
-                      </span>
-                    </li>
-                  );
-                })}
-              </ul>
-            ) : (
-              <p className="text-[11px] tracking-wide" style={{color:'var(--text-faint)'}}>예정 작업 없음</p>
-            )}
-          </div>
-          <div className="mt-3 flex items-center justify-between text-[10px] tracking-wide" style={{color:'var(--text-faint)'}}>
-            <span>전체 {total}건</span>
-            <span className="flex items-center gap-1 transition group-hover:gap-1.5" style={{color:'var(--text-muted)'}}>
+          <div className="pt-2.5 flex items-center justify-between" style={{borderTop:'1px solid var(--border)'}}>
+            <div className="flex items-baseline gap-1.5">
+              <span className="text-[10px] tracking-[0.2em] uppercase font-eyebrow" style={{color:'var(--text-faint)'}}>
+                @멘션
+              </span>
+              <span className="font-display tabular-nums" style={{fontSize:'18px', lineHeight:1, fontWeight:300, color: mentionCount > 0 ? '#2563eb' : 'var(--text-faint)'}}>
+                {mentionCount}
+              </span>
+            </div>
+            <span className="flex items-center gap-1 transition group-hover:gap-1.5 text-[10px] tracking-wide" style={{color:'var(--text-muted)'}}>
               상세 <ArrowUpRight size={10} strokeWidth={1.4} />
             </span>
           </div>
@@ -869,7 +1087,7 @@
       );
     }
 
-    function BrandModal({ brandId, tasks, onClose, onAdd, onCycleStatus, onDelete, onEdit, currentUser, onAddComment, onDeleteComment }) {
+    function BrandModal({ brandId, tasks, onClose, onAdd, onChangeStatus, onDelete, onEdit, currentUser, onAddComment, onDeleteComment }) {
       const brand = brandById(brandId);
       const [showForm, setShowForm] = useState(tasks.length === 0);
       const sorted = [...tasks].sort((a, b) => {
@@ -919,7 +1137,7 @@
                 {sorted.map(t => (
                   <TaskRow
                     key={t.id} task={t} showBrand={false}
-                    onCycleStatus={() => onCycleStatus(t.id)}
+                    onChangeStatus={(id, next) => onChangeStatus(id, next)}
                     onEdit={() => onEdit(t)}
                     onDelete={() => { if (confirm('삭제하시겠습니까?')) onDelete(t.id); }}
                     currentUser={currentUser}
@@ -1004,7 +1222,7 @@
       );
     }
 
-    function MemberModal({ memberId, tasks, allTasks, onClose, onCycleStatus, onDelete, onEdit, currentUser, onAddComment, onDeleteComment, onOpenBrand }) {
+    function MemberModal({ memberId, tasks, allTasks, onClose, onChangeStatus, onDelete, onEdit, currentUser, onAddComment, onDeleteComment, onOpenBrand, onAssign }) {
       const m = memberById(memberId);
       const [tab, setTab] = useState('active');
       // Tasks assigned to this member
@@ -1045,11 +1263,20 @@
                 <span className="text-sm" style={{color:'var(--text-muted)'}}>{m.title}</span>
               </div>
             </div>
-            <button onClick={onClose} className="transition" style={{color:'var(--text-muted)'}}
-                    onMouseEnter={(e)=>e.currentTarget.style.color='var(--ink)'}
-                    onMouseLeave={(e)=>e.currentTarget.style.color='var(--text-muted)'}>
-              <XIcon size={18} strokeWidth={1.5} />
-            </button>
+            <div className="flex items-center gap-2">
+              {currentUser === 'lee_dh' && memberId !== 'lee_dh' && (
+                <button onClick={() => onAssign(memberId)}
+                        className="text-xs px-3.5 py-1.5 rounded-full transition tracking-wide flex items-center gap-1.5"
+                        style={{background:'var(--ink)', color:'white'}}>
+                  <Plus size={11} strokeWidth={2.2} /> 작업 지시
+                </button>
+              )}
+              <button onClick={onClose} className="transition" style={{color:'var(--text-muted)'}}
+                      onMouseEnter={(e)=>e.currentTarget.style.color='var(--ink)'}
+                      onMouseLeave={(e)=>e.currentTarget.style.color='var(--text-muted)'}>
+                <XIcon size={18} strokeWidth={1.5} />
+              </button>
+            </div>
           </div>
           <div className="px-8 pt-4 flex gap-7" style={{borderBottom:'1px solid var(--border)'}}>
             <ModalTab active={tab==='active'}   onClick={() => setTab('active')}   label="진행 작업" count={activeTasks.length} />
@@ -1081,7 +1308,7 @@
                 {list.map(t => (
                   <TaskRow
                     key={t.id} task={t} showBrand={true}
-                    onCycleStatus={() => onCycleStatus(t.id)}
+                    onChangeStatus={(id, next) => onChangeStatus(id, next)}
                     onEdit={() => onEdit(t)}
                     onDelete={() => { if (confirm('삭제하시겠습니까?')) onDelete(t.id); }}
                     currentUser={currentUser}
@@ -1348,7 +1575,39 @@
       );
     }
 
-    function TaskRow({ task, showBrand, onCycleStatus, onEdit, onDelete, currentUser, onAddComment, onDeleteComment }) {
+    function StatusButtons({ task, currentStatus, canEdit, onChange }) {
+      return (
+        <div className="inline-flex items-center gap-1">
+          {STATUS.map(s => {
+            const Ic = s.icon;
+            const active = s.id === currentStatus;
+            const handler = (e) => {
+              e.stopPropagation();
+              if (!canEdit) return;
+              if (active) return;
+              onChange(s.id);
+            };
+            return (
+              <button key={s.id}
+                      onClick={handler}
+                      disabled={!canEdit}
+                      title={canEdit ? s.label : `${s.label} (담당자만 변경)`}
+                      className={`flex items-center gap-1 px-1.5 py-0.5 rounded-sm transition ${canEdit ? 'cursor-pointer' : 'cursor-not-allowed'}`}
+                      style={{
+                        border: '1px solid ' + (active ? 'var(--ink)' : 'transparent'),
+                        background: active ? 'var(--surface-2)' : 'transparent',
+                        opacity: !canEdit && !active ? 0.4 : 1,
+                      }}>
+                <Ic size={11} strokeWidth={1.6} className={s.cls} />
+                {active && <span className={`text-[10px] tracking-wide ${s.cls}`} style={{fontWeight:500}}>{s.label}</span>}
+              </button>
+            );
+          })}
+        </div>
+      );
+    }
+
+    function TaskRow({ task, showBrand, onChangeStatus, onEdit, onDelete, currentUser, onAddComment, onDeleteComment }) {
       const s = statusOf(task.status);
       const p = priorityOf(task.priority);
       const assignees = (task.assigneeIds || (task.assigneeId ? [task.assigneeId] : [])).map(memberById).filter(Boolean);
@@ -1369,9 +1628,9 @@
               opacity: isDone ? 0.55 : 1
             }}>
           <div className="group flex items-start gap-3 p-3">
-            <button onClick={onCycleStatus} className={`mt-0.5 flex-shrink-0 ${s.cls} hover:scale-110 transition`} title={`상태: ${s.label}`}>
-              <StatusIcon size={16} strokeWidth={1.6} />
-            </button>
+            <div className="mt-0.5 flex-shrink-0" title={`상태: ${s.label}`}>
+              <StatusIcon size={16} strokeWidth={1.6} className={s.cls} />
+            </div>
             <div className="flex-1 min-w-0 cursor-pointer" onClick={() => setExpanded(e => !e)}>
               <div className="flex items-center gap-2 mb-1 flex-wrap">
                 {showBrand && b && (
@@ -1399,9 +1658,9 @@
                 </p>
               )}
               <div className="flex items-center gap-3 mt-1.5 text-[10px] tracking-wide flex-wrap" style={{color:'var(--text-muted)'}}>
-                <span className={`flex items-center gap-1 ${s.cls}`}>
-                  <span className={`w-1 h-1 rounded-full ${s.dot}`}></span> {s.label}
-                </span>
+                <StatusButtons task={task} currentStatus={task.status}
+                  canEdit={currentUser === 'lee_dh' || (task.assigneeIds || []).includes(currentUser)}
+                  onChange={(next) => onChangeStatus && onChangeStatus(task.id, next)} />
                 {assignees.length > 0 && (
                   <span className="flex items-center gap-1">
                     <UsersI size={9} strokeWidth={1.5} />
