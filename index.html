@@ -67,6 +67,13 @@
     .hero-overlay { position: absolute; inset: 0; background:
       radial-gradient(ellipse at 70% 25%, rgba(255,255,255,0.15) 0%, transparent 55%),
       radial-gradient(ellipse at 20% 80%, rgba(0,0,0,0.25) 0%, transparent 50%); pointer-events: none; }
+    /* Mentions & comments */
+    .mention-chip { display: inline-block; padding: 1px 7px; border-radius: 4px; background: rgba(28,37,64,0.09); color: var(--ink); font-weight: 500; font-size: 0.95em; line-height: 1.4; }
+    .mention-popup { position: absolute; background: white; border: 1px solid var(--border-strong); border-radius: 6px; box-shadow: 0 8px 24px rgba(30,39,70,0.15); z-index: 100; min-width: 220px; max-height: 220px; overflow-y: auto; padding: 4px; }
+    .mention-popup-item { display: flex; align-items: center; gap: 8px; width: 100%; text-align: left; padding: 7px 10px; background: transparent; border: none; cursor: pointer; border-radius: 4px; font-size: 13px; color: var(--ink); }
+    .mention-popup-item:hover, .mention-popup-item.active { background: var(--surface-2); }
+    .mention-popup-meta { color: var(--text-faint); font-size: 11px; }
+    .comment-thread-divider { height: 1px; background: var(--border); margin: 12px 0; }
   </style>
 
   <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
@@ -204,6 +211,24 @@
     ];
 
     const STORAGE_KEY = 'grc-bm-tasks-v1';
+    const USER_KEY = 'grc-bm-current-user-v1';
+
+    // Mention syntax: @[이름](id). Extract ids referenced.
+    const extractMentionIds = (text) => {
+      if (!text) return [];
+      return [...new Set([...text.matchAll(/@\[[^\]]+\]\(([a-z_]+)\)/g)].map(m => m[1]))];
+    };
+
+    // Render text with @[name](id) chips
+    function RichText({ text }) {
+      if (!text) return null;
+      const parts = text.split(/(@\[[^\]]+\]\([a-z_]+\))/g);
+      return parts.map((p, i) => {
+        const m = p.match(/^@\[([^\]]+)\]\(([a-z_]+)\)$/);
+        if (m) return <span key={i} className="mention-chip">@{m[1]}</span>;
+        return <span key={i} style={{whiteSpace:'pre-wrap'}}>{p}</span>;
+      });
+    }
     const LOGO_SRC = 'data:image/png;base64,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';
 
     /* ---------- HELPERS ---------- */
@@ -241,14 +266,49 @@
       const [openMember, setOpenMember] = useState(null);
       const [showAdd, setShowAdd] = useState(false);
       const [editingTask, setEditingTask] = useState(null);
+      const [currentUser, setCurrentUser] = useState('lee_dh');
 
       useEffect(() => {
         try {
           const raw = localStorage.getItem(STORAGE_KEY);
-          if (raw) setTasks(JSON.parse(raw));
+          if (raw) {
+            const parsed = JSON.parse(raw);
+            // Migrate: ensure comments[] + createdBy
+            const migrated = parsed.map(t => ({
+              ...t,
+              comments: t.comments || [],
+              createdBy: t.createdBy || 'lee_dh',
+            }));
+            setTasks(migrated);
+          }
+          const u = localStorage.getItem(USER_KEY);
+          if (u && MEMBERS.find(m => m.id === u)) setCurrentUser(u);
         } catch (e) {}
         setLoaded(true);
       }, []);
+
+      const setUser = (id) => {
+        setCurrentUser(id);
+        try { localStorage.setItem(USER_KEY, id); } catch {}
+      };
+
+      const addComment = (taskId, body) => {
+        const t = tasks.find(x => x.id === taskId);
+        if (!t) return;
+        const c = {
+          id: 'c_' + Date.now().toString(36) + Math.random().toString(36).slice(2,5),
+          authorId: currentUser,
+          body: body,
+          createdAt: new Date().toISOString(),
+        };
+        updateTask(taskId, { comments: [...(t.comments || []), c] });
+      };
+
+      const deleteComment = (taskId, commentId) => {
+        const t = tasks.find(x => x.id === taskId);
+        if (!t) return;
+        updateTask(taskId, { comments: (t.comments || []).filter(c => c.id !== commentId) });
+      };
 
       const persist = (next) => {
         setTasks(next);
@@ -266,6 +326,8 @@
           dueDate: data.dueDate || '',
           priority: data.priority || 'normal',
           status: data.status || 'pending',
+          createdBy: currentUser,
+          comments: [],
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
         };
@@ -315,7 +377,7 @@
 
       return (
         <div className="min-h-screen" style={{background:'var(--bg)', color:'var(--text)'}}>
-          <Header view={view} setView={setView} />
+          <Header view={view} setView={setView} currentUser={currentUser} onSetUser={setUser} />
 
           <main className="max-w-6xl mx-auto px-8 py-12">
             <div className="mb-8 pb-5 flex items-end justify-between gap-4 flex-wrap" style={{borderBottom:'1px solid var(--border)'}}>
@@ -358,15 +420,21 @@
               onClose={() => setOpenBrand(null)}
               onAdd={addTask} onUpdate={updateTask} onDelete={deleteTask}
               onCycleStatus={cycleStatus} onEdit={(t) => setEditingTask(t)}
+              currentUser={currentUser}
+              onAddComment={addComment} onDeleteComment={deleteComment}
             />
           )}
           {openMember && (
             <MemberModal
               memberId={openMember}
-              tasks={tasks.filter(t => t.assigneeId === openMember)}
+              tasks={tasks}
+              allTasks={tasks}
               onClose={() => setOpenMember(null)}
               onUpdate={updateTask} onDelete={deleteTask}
               onCycleStatus={cycleStatus} onEdit={(t) => setEditingTask(t)}
+              currentUser={currentUser}
+              onAddComment={addComment} onDeleteComment={deleteComment}
+              onOpenBrand={(id) => { setOpenMember(null); setOpenBrand(id); }}
             />
           )}
           {showAdd && (
@@ -390,8 +458,9 @@
     /* ============================================================
        HEADER (Grace-style brand bar)
        ============================================================ */
-    function Header({ view, setView }) {
+    function Header({ view, setView, currentUser, onSetUser }) {
       const reload = () => { window.scrollTo({top:0, behavior:'smooth'}); setView('brands'); setTimeout(() => window.location.reload(), 50); };
+      const me = memberById(currentUser);
       const headerBg = 'linear-gradient(180deg, var(--header-from) 0%, var(--header-to) 100%)';
       const textCol = 'rgba(255,255,255,0.92)';
       const mutedCol = 'rgba(255,255,255,0.62)';
@@ -412,9 +481,13 @@
                 Brand Management
               </span>
             </button>
-            <div className="flex items-center">
-              <TabBtn active={view === 'brands'}  onClick={() => setView('brands')}  label="브랜드" sub="Brands" />
-              <TabBtn active={view === 'members'} onClick={() => setView('members')} label="담당자" sub="People" last />
+            <div className="flex items-center gap-5">
+              <UserPicker currentUser={currentUser} onSetUser={onSetUser} />
+              <span className="hidden md:inline-block w-px h-5" style={{background: dividerCol}}></span>
+              <div className="flex items-center">
+                <TabBtn active={view === 'brands'}  onClick={() => setView('brands')}  label="브랜드" sub="Brands" />
+                <TabBtn active={view === 'members'} onClick={() => setView('members')} label="담당자" sub="People" last />
+              </div>
             </div>
           </div>
         </header>
@@ -427,6 +500,42 @@
         <div className="flex items-baseline gap-2">
           <span className="tracking-[0.2em] uppercase font-light" style={{fontSize:'10px', color: danger ? '#a83247' : 'var(--text-muted)'}}>{label}</span>
           <span className="text-base tabular-nums font-light" style={{color: danger ? '#a83247' : valColor}}>{value}</span>
+        </div>
+      );
+    }
+
+    function UserPicker({ currentUser, onSetUser }) {
+      const [open, setOpen] = useState(false);
+      const me = memberById(currentUser);
+      useEffect(() => {
+        if (!open) return;
+        const close = (e) => setOpen(false);
+        window.addEventListener('click', close);
+        return () => window.removeEventListener('click', close);
+      }, [open]);
+      return (
+        <div className="relative" onClick={(e) => e.stopPropagation()}>
+          <button onClick={() => setOpen(o => !o)}
+                  className="flex items-center gap-2 text-xs px-2.5 py-1.5 rounded-full transition"
+                  style={{background:'rgba(255,255,255,0.08)', color:'rgba(255,255,255,0.85)', border:'1px solid rgba(255,255,255,0.12)'}}>
+            <span className="w-1.5 h-1.5 rounded-full" style={{background:'#7a8c5e'}}></span>
+            <span className="font-medium">{me?.name || '—'}</span>
+            <span style={{color:'rgba(255,255,255,0.55)'}}>{me?.title || ''}</span>
+            <ChevronDown size={11} strokeWidth={1.5} style={{opacity:0.6}} />
+          </button>
+          {open && (
+            <div className="absolute right-0 mt-1 mention-popup" style={{minWidth:'220px'}}>
+              <div className="px-2 py-1.5 text-[10px] font-eyebrow uppercase" style={{color:'var(--text-faint)'}}>나는…</div>
+              {MEMBERS.map(m => (
+                <button key={m.id}
+                        onClick={() => { onSetUser(m.id); setOpen(false); }}
+                        className={`mention-popup-item ${m.id === currentUser ? 'active' : ''}`}>
+                  <span style={{flex:1}}>{m.name} <span className="mention-popup-meta">{m.title}</span></span>
+                  <span className="mention-popup-meta">{m.role}</span>
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       );
     }
@@ -595,7 +704,7 @@
             )}
           </div>
           <div>
-            <h3 className="text-base mb-1" style={{color:'var(--ink)', fontWeight: 500}}>{brand.name}</h3>
+            <h3 className="text-base mb-1" style={{color:'var(--ink)', fontWeight: 500}}>{brand.name.split('/')[0]}</h3>
             <p className="text-[10px] tracking-[0.2em] uppercase font-eyebrow" style={{color:'var(--text-faint)'}}>
               {active > 0 ? `Active · ${active}` : 'No tasks'}
             </p>
@@ -759,7 +868,7 @@
       );
     }
 
-    function BrandModal({ brandId, tasks, onClose, onAdd, onCycleStatus, onDelete, onEdit }) {
+    function BrandModal({ brandId, tasks, onClose, onAdd, onCycleStatus, onDelete, onEdit, currentUser, onAddComment, onDeleteComment }) {
       const brand = brandById(brandId);
       const [showForm, setShowForm] = useState(tasks.length === 0);
       const sorted = [...tasks].sort((a, b) => {
@@ -817,6 +926,9 @@
                     onCycleStatus={() => onCycleStatus(t.id)}
                     onEdit={() => onEdit(t)}
                     onDelete={() => { if (confirm('삭제하시겠습니까?')) onDelete(t.id); }}
+                    currentUser={currentUser}
+                    onAddComment={onAddComment}
+                    onDeleteComment={onDeleteComment}
                   />
                 ))}
               </ul>
@@ -846,18 +958,35 @@
     /* ============================================================
        MEMBER MODAL
        ============================================================ */
-    function MemberModal({ memberId, tasks, onClose, onCycleStatus, onDelete, onEdit }) {
+    function MemberModal({ memberId, tasks, allTasks, onClose, onCycleStatus, onDelete, onEdit, currentUser, onAddComment, onDeleteComment, onOpenBrand }) {
       const m = memberById(memberId);
       const [tab, setTab] = useState('active');
-      const filtered = tasks.filter(t => tab === 'done' ? t.status === 'done' : t.status !== 'done');
-      const sorted = [...filtered].sort((a, b) => {
+      // Tasks assigned to this member
+      const myTasks = (allTasks || tasks).filter(t => t.assigneeId === memberId);
+      const activeTasks  = myTasks.filter(t => t.status !== 'done');
+      const doneTasks    = myTasks.filter(t => t.status === 'done');
+      // Mentions: tasks where this member is referenced (in description or in any comment)
+      const mentionedItems = [];
+      (allTasks || tasks).forEach(t => {
+        if (extractMentionIds(t.description || '').includes(memberId)) {
+          mentionedItems.push({ kind: 'desc', task: t, when: t.createdAt });
+        }
+        (t.comments || []).forEach(c => {
+          if (extractMentionIds(c.body || '').includes(memberId)) {
+            mentionedItems.push({ kind: 'comment', task: t, comment: c, when: c.createdAt });
+          }
+        });
+      });
+      mentionedItems.sort((a,b) => (b.when || '').localeCompare(a.when || ''));
+
+      const sorted = (list) => [...list].sort((a, b) => {
         if (a.dueDate && b.dueDate) return a.dueDate.localeCompare(b.dueDate);
         if (a.dueDate) return -1;
         if (b.dueDate) return 1;
         return b.createdAt.localeCompare(a.createdAt);
       });
-      const activeCount = tasks.filter(t => t.status !== 'done').length;
-      const doneCount = tasks.filter(t => t.status === 'done').length;
+      const list = tab === 'done' ? sorted(doneTasks) : sorted(activeTasks);
+
       return (
         <Modal onClose={onClose}>
           <div className="flex items-center justify-between px-8 py-6" style={{borderBottom:'1px solid var(--border)'}}>
@@ -877,22 +1006,65 @@
             </button>
           </div>
           <div className="px-8 pt-4 flex gap-7" style={{borderBottom:'1px solid var(--border)'}}>
-            <ModalTab active={tab==='active'} onClick={() => setTab('active')} label="진행 작업" count={activeCount} />
-            <ModalTab active={tab==='done'}   onClick={() => setTab('done')}   label="완료" count={doneCount} />
+            <ModalTab active={tab==='active'}   onClick={() => setTab('active')}   label="진행 작업" count={activeTasks.length} />
+            <ModalTab active={tab==='done'}     onClick={() => setTab('done')}     label="완료" count={doneTasks.length} />
+            <ModalTab active={tab==='mentions'} onClick={() => setTab('mentions')} label="@멘션" count={mentionedItems.length} />
           </div>
           <div className="px-8 py-6 overflow-y-auto" style={{ maxHeight: '60vh' }}>
-            {sorted.length === 0 ? (
+            {tab === 'mentions' ? (
+              mentionedItems.length === 0 ? (
+                <div className="text-center py-12">
+                  <p className="text-sm" style={{color:'var(--text-muted)'}}>아직 멘션이 없습니다</p>
+                </div>
+              ) : (
+                <ul className="space-y-3">
+                  {mentionedItems.map((item, i) => {
+                    const b = brandById(item.task.brandId);
+                    const author = item.kind === 'comment' ? memberById(item.comment.authorId) : memberById(item.task.createdBy);
+                    const d = new Date(item.when);
+                    const when = `${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+                    return (
+                      <li key={i} className="p-3 rounded-sm" style={{border:'1px solid var(--border)', background:'var(--surface)'}}>
+                        <div className="flex items-center gap-2 mb-1.5 flex-wrap">
+                          {b && (
+                            <button onClick={() => onOpenBrand(b.id)}
+                                    className="text-[10px] px-1.5 py-0.5 rounded-sm tracking-wider transition"
+                                    style={{background:'var(--surface-2)', color:'var(--ink-soft)', border:'1px solid var(--border)'}}>
+                              {b.name.split('/')[0]}
+                            </button>
+                          )}
+                          <span className="text-sm font-medium" style={{color:'var(--ink)'}}>{item.task.title}</span>
+                          <span className="text-[10px] px-1.5 py-0.5 rounded-sm tracking-wider"
+                                style={{background:'rgba(201,169,97,0.15)', color:'#a37800', border:'1px solid #d6c08a'}}>
+                            {item.kind === 'comment' ? '댓글' : '작업 본문'}
+                          </span>
+                        </div>
+                        <p className="text-xs leading-relaxed mb-1.5" style={{color:'var(--text)'}}>
+                          <RichText text={item.kind === 'comment' ? item.comment.body : item.task.description} />
+                        </p>
+                        <div className="text-[10px] tracking-wide" style={{color:'var(--text-faint)'}}>
+                          {author?.name} {author?.title} · {when}
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )
+            ) : list.length === 0 ? (
               <div className="text-center py-12">
                 <p className="text-sm" style={{color:'var(--text-muted)'}}>{tab === 'active' ? '진행 중인 작업이 없습니다' : '완료된 작업이 없습니다'}</p>
               </div>
             ) : (
               <ul className="space-y-2">
-                {sorted.map(t => (
+                {list.map(t => (
                   <TaskRow
                     key={t.id} task={t} showBrand={true}
                     onCycleStatus={() => onCycleStatus(t.id)}
                     onEdit={() => onEdit(t)}
                     onDelete={() => { if (confirm('삭제하시겠습니까?')) onDelete(t.id); }}
+                    currentUser={currentUser}
+                    onAddComment={onAddComment}
+                    onDeleteComment={onDeleteComment}
                   />
                 ))}
               </ul>
@@ -916,7 +1088,165 @@
     /* ============================================================
        TASK ROW
        ============================================================ */
-    function TaskRow({ task, showBrand, onCycleStatus, onEdit, onDelete }) {
+    // Textarea with @ mention autocomplete. Stores mentions as @[name](id).
+    function MentionInput({ value, onChange, placeholder, rows = 3, autoFocus, multiline = true, className = '', style = {} }) {
+      const ref = useRef(null);
+      const [popup, setPopup] = useState(null); // { query, top, left, idx }
+
+      const updatePopupFromCursor = () => {
+        const el = ref.current; if (!el) return;
+        const cursor = el.selectionStart || 0;
+        const before = (el.value || '').slice(0, cursor);
+        const m = before.match(/@([\u3131-\uD79D\w가-힣]*)$/);
+        if (!m) { setPopup(null); return; }
+        const rect = el.getBoundingClientRect();
+        const parentRect = el.parentElement.getBoundingClientRect();
+        // Place popup under the textarea, left aligned with current end of input
+        setPopup({
+          query: m[1] || '',
+          top: rect.bottom - parentRect.top + 2,
+          left: 0,
+          idx: 0,
+        });
+      };
+
+      const filtered = popup ? MEMBERS.filter(mm => {
+        if (!popup.query) return true;
+        const q = popup.query.toLowerCase();
+        return mm.name.toLowerCase().includes(q) || mm.id.toLowerCase().includes(q);
+      }).slice(0, 6) : [];
+
+      const insertMention = (member) => {
+        const el = ref.current; if (!el) return;
+        const cursor = el.selectionStart || 0;
+        const before = (el.value || '').slice(0, cursor);
+        const after = (el.value || '').slice(cursor);
+        const replacement = `@[${member.name}](${member.id}) `;
+        const newBefore = before.replace(/@[\u3131-\uD79D\w가-힣]*$/, replacement);
+        const newVal = newBefore + after;
+        onChange(newVal);
+        setPopup(null);
+        // Restore cursor after replacement
+        setTimeout(() => {
+          if (ref.current) {
+            const pos = newBefore.length;
+            ref.current.focus();
+            ref.current.setSelectionRange(pos, pos);
+          }
+        }, 0);
+      };
+
+      const onKeyDown = (e) => {
+        if (!popup || filtered.length === 0) return;
+        if (e.key === 'ArrowDown') { e.preventDefault(); setPopup(p => ({...p, idx: (p.idx + 1) % filtered.length})); }
+        else if (e.key === 'ArrowUp') { e.preventDefault(); setPopup(p => ({...p, idx: (p.idx - 1 + filtered.length) % filtered.length})); }
+        else if (e.key === 'Enter' || e.key === 'Tab') { e.preventDefault(); insertMention(filtered[popup.idx]); }
+        else if (e.key === 'Escape') { setPopup(null); }
+      };
+
+      const Comp = multiline ? 'textarea' : 'input';
+      const compProps = multiline ? { rows } : { type: 'text' };
+
+      return (
+        <div className="relative">
+          <Comp
+            ref={ref}
+            value={value}
+            onChange={(e) => { onChange(e.target.value); requestAnimationFrame(updatePopupFromCursor); }}
+            onKeyDown={onKeyDown}
+            onClick={updatePopupFromCursor}
+            onKeyUp={updatePopupFromCursor}
+            onBlur={() => setTimeout(() => setPopup(null), 150)}
+            placeholder={placeholder}
+            autoFocus={autoFocus}
+            className={className}
+            style={style}
+            {...compProps}
+          />
+          {popup && filtered.length > 0 && (
+            <div className="mention-popup" style={{top: popup.top, left: popup.left}}>
+              {filtered.map((m, i) => (
+                <button key={m.id} type="button"
+                        className={`mention-popup-item ${i === popup.idx ? 'active' : ''}`}
+                        onMouseDown={(e) => { e.preventDefault(); insertMention(m); }}>
+                  <span style={{flex:1}}>{m.name} <span className="mention-popup-meta">{m.title}</span></span>
+                  <span className="mention-popup-meta">{m.role}</span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    function CommentThread({ task, currentUser, onAddComment, onDeleteComment }) {
+      const [draft, setDraft] = useState('');
+      const submit = () => {
+        if (!draft.trim()) return;
+        onAddComment(task.id, draft.trim());
+        setDraft('');
+      };
+      const onKey = (e) => {
+        if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') { e.preventDefault(); submit(); }
+      };
+      const comments = task.comments || [];
+      return (
+        <div className="mt-2 ml-7 mr-2 pb-3">
+          {comments.length > 0 && (
+            <ul className="space-y-2.5 mb-3">
+              {comments.map(c => {
+                const author = memberById(c.authorId);
+                const isMine = c.authorId === currentUser;
+                const d = new Date(c.createdAt);
+                const when = `${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+                return (
+                  <li key={c.id} className="text-xs">
+                    <div className="flex items-baseline gap-2 mb-0.5">
+                      <span className="font-medium" style={{color:'var(--ink)', fontSize:'12px'}}>
+                        {author?.name || '—'} <span style={{color:'var(--text-muted)', fontWeight:400}}>{author?.title || ''}</span>
+                      </span>
+                      <span style={{color:'var(--text-faint)', fontSize:'10px'}}>{when}</span>
+                      {isMine && (
+                        <button onClick={() => onDeleteComment(task.id, c.id)}
+                                className="ml-auto opacity-0 hover:opacity-100"
+                                style={{color:'var(--text-faint)', fontSize:'10px'}}>
+                          삭제
+                        </button>
+                      )}
+                    </div>
+                    <div className="text-xs leading-relaxed" style={{color:'var(--text)'}}>
+                      <RichText text={c.body} />
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+          <div className="rounded-sm" style={{border:'1px solid var(--border)', background:'var(--surface)'}}>
+            <MentionInput
+              value={draft}
+              onChange={setDraft}
+              placeholder="댓글 작성… (@로 멤버 멘션, ⌘+Enter 등록)"
+              rows={2}
+              className="w-full bg-transparent text-xs px-3 py-2 outline-none resize-none leading-relaxed"
+              style={{color:'var(--text)', minHeight:'52px'}}
+            />
+            <div className="flex items-center justify-between px-3 py-1.5" style={{borderTop:'1px solid var(--border)'}}>
+              <span className="text-[10px] tracking-wide" style={{color:'var(--text-faint)'}}>
+                @로 멤버 멘션
+              </span>
+              <button onClick={submit} disabled={!draft.trim()}
+                      className="text-xs px-3 py-1 rounded-sm transition disabled:opacity-30 disabled:cursor-not-allowed"
+                      style={{background:'var(--ink)', color:'white'}}>
+                등록
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    function TaskRow({ task, showBrand, onCycleStatus, onEdit, onDelete, currentUser, onAddComment, onDeleteComment }) {
       const s = statusOf(task.status);
       const p = priorityOf(task.priority);
       const a = memberById(task.assigneeId);
@@ -924,69 +1254,94 @@
       const days = task.dueDate ? daysUntil(task.dueDate) : null;
       const isDone = task.status === 'done';
       const StatusIcon = s.icon;
+      const [expanded, setExpanded] = useState(false);
+      const commentCount = (task.comments || []).length;
+      const descMentions = extractMentionIds(task.description || '');
+      const cmtMentions = extractMentionIds((task.comments || []).map(c => c.body).join(' '));
+      const hasMentionedMe = currentUser && (descMentions.includes(currentUser) || cmtMentions.includes(currentUser));
       return (
-        <li className="group flex items-start gap-3 p-3 rounded-sm transition"
+        <li className="rounded-sm transition"
             style={{
               background:'var(--surface)',
-              border:'1px solid var(--border)',
+              border:'1px solid ' + (hasMentionedMe ? '#c9a961' : 'var(--border)'),
               opacity: isDone ? 0.55 : 1
-            }}
-            onMouseEnter={(e)=>{e.currentTarget.style.borderColor='var(--border-strong)';e.currentTarget.style.background='var(--surface-2)';}}
-            onMouseLeave={(e)=>{e.currentTarget.style.borderColor='var(--border)';e.currentTarget.style.background='var(--surface)';}}>
-          <button onClick={onCycleStatus} className={`mt-0.5 flex-shrink-0 ${s.cls} hover:scale-110 transition`} title={`상태: ${s.label}`}>
-            <StatusIcon size={16} strokeWidth={1.6} />
-          </button>
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 mb-1 flex-wrap">
-              {showBrand && b && (
-                <span className="text-[10px] px-1.5 py-0.5 rounded-sm tracking-wider"
-                      style={{background:'var(--surface-2)', color:'var(--ink-soft)', border:'1px solid var(--border)'}}>
-                  {b.name}
+            }}>
+          <div className="group flex items-start gap-3 p-3">
+            <button onClick={onCycleStatus} className={`mt-0.5 flex-shrink-0 ${s.cls} hover:scale-110 transition`} title={`상태: ${s.label}`}>
+              <StatusIcon size={16} strokeWidth={1.6} />
+            </button>
+            <div className="flex-1 min-w-0 cursor-pointer" onClick={() => setExpanded(e => !e)}>
+              <div className="flex items-center gap-2 mb-1 flex-wrap">
+                {showBrand && b && (
+                  <span className="text-[10px] px-1.5 py-0.5 rounded-sm tracking-wider"
+                        style={{background:'var(--surface-2)', color:'var(--ink-soft)', border:'1px solid var(--border)'}}>
+                    {b.name.split('/')[0]}
+                  </span>
+                )}
+                <span className="text-sm" style={{color: isDone ? 'var(--text-faint)' : 'var(--ink)', textDecoration: isDone ? 'line-through' : 'none'}}>
+                  {task.title}
                 </span>
+                {task.priority === 'high' && (
+                  <span className={`text-[9px] px-1.5 py-0.5 rounded-sm border tracking-wider ${p.cls}`}>{p.label}</span>
+                )}
+                {hasMentionedMe && (
+                  <span className="text-[9px] px-1.5 py-0.5 rounded-sm tracking-wider"
+                        style={{background:'rgba(201,169,97,0.15)', color:'#a37800', border:'1px solid #d6c08a'}}>
+                    @멘션
+                  </span>
+                )}
+              </div>
+              {task.description && (
+                <p className="text-xs mt-1 leading-relaxed" style={{color:'var(--text-muted)'}}>
+                  <RichText text={task.description} />
+                </p>
               )}
-              <span className="text-sm" style={{color: isDone ? 'var(--text-faint)' : 'var(--ink)', textDecoration: isDone ? 'line-through' : 'none'}}>
-                {task.title}
-              </span>
-              {task.priority === 'high' && (
-                <span className={`text-[9px] px-1.5 py-0.5 rounded-sm border tracking-wider ${p.cls}`}>{p.label}</span>
-              )}
+              <div className="flex items-center gap-3 mt-1.5 text-[10px] tracking-wide flex-wrap" style={{color:'var(--text-muted)'}}>
+                <span className={`flex items-center gap-1 ${s.cls}`}>
+                  <span className={`w-1 h-1 rounded-full ${s.dot}`}></span> {s.label}
+                </span>
+                {a && (
+                  <span className="flex items-center gap-1">
+                    <UsersI size={9} strokeWidth={1.5} /> {a.name} {a.title}
+                  </span>
+                )}
+                {task.dueDate && (
+                  <span className="flex items-center gap-1 tabular-nums"
+                        style={{color: isDone ? 'var(--text-faint)' : days < 0 ? '#a83247' : days <= 3 ? '#a37800' : 'var(--text-muted)'}}>
+                    <CalendarI size={9} strokeWidth={1.5} />
+                    {fmtDate(task.dueDate)}
+                    {!isDone && days !== null && (
+                      <span className="ml-0.5">({days < 0 ? `${Math.abs(days)}일 지연` : days === 0 ? '오늘' : `D-${days}`})</span>
+                    )}
+                  </span>
+                )}
+                <span className="flex items-center gap-1 transition hover:text-zinc-700"
+                      style={{color: commentCount > 0 ? 'var(--ink-soft)' : 'var(--text-faint)'}}>
+                  💬 {commentCount}
+                </span>
+              </div>
             </div>
-            {task.description && (<p className="text-xs mt-1 leading-relaxed" style={{color:'var(--text-muted)'}}>{task.description}</p>)}
-            <div className="flex items-center gap-3 mt-1.5 text-[10px] tracking-wide flex-wrap" style={{color:'var(--text-muted)'}}>
-              <span className={`flex items-center gap-1 ${s.cls}`}>
-                <span className={`w-1 h-1 rounded-full ${s.dot}`}></span> {s.label}
-              </span>
-              {a && (
-                <span className="flex items-center gap-1">
-                  <UsersI size={9} strokeWidth={1.5} /> {a.name} {a.title}
-                </span>
-              )}
-              {task.dueDate && (
-                <span className="flex items-center gap-1 tabular-nums"
-                      style={{color: isDone ? 'var(--text-faint)' : days < 0 ? '#a83247' : days <= 3 ? '#a37800' : 'var(--text-muted)'}}>
-                  <CalendarI size={9} strokeWidth={1.5} />
-                  {fmtDate(task.dueDate)}
-                  {!isDone && days !== null && (
-                    <span className="ml-0.5">({days < 0 ? `${Math.abs(days)}일 지연` : days === 0 ? '오늘' : `D-${days}`})</span>
-                  )}
-                </span>
-              )}
+            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition flex-shrink-0">
+              <button onClick={onEdit} className="p-1 transition" style={{color:'var(--text-muted)'}}
+                      onMouseEnter={(e)=>e.currentTarget.style.color='var(--ink)'}
+                      onMouseLeave={(e)=>e.currentTarget.style.color='var(--text-muted)'}
+                      title="수정">
+                <Edit3 size={13} strokeWidth={1.5} />
+              </button>
+              <button onClick={onDelete} className="p-1 transition" style={{color:'var(--text-muted)'}}
+                      onMouseEnter={(e)=>e.currentTarget.style.color='#a83247'}
+                      onMouseLeave={(e)=>e.currentTarget.style.color='var(--text-muted)'}
+                      title="삭제">
+                <Trash2 size={13} strokeWidth={1.5} />
+              </button>
             </div>
           </div>
-          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition flex-shrink-0">
-            <button onClick={onEdit} className="p-1 transition" style={{color:'var(--text-muted)'}}
-                    onMouseEnter={(e)=>e.currentTarget.style.color='var(--ink)'}
-                    onMouseLeave={(e)=>e.currentTarget.style.color='var(--text-muted)'}
-                    title="수정">
-              <Edit3 size={13} strokeWidth={1.5} />
-            </button>
-            <button onClick={onDelete} className="p-1 transition" style={{color:'var(--text-muted)'}}
-                    onMouseEnter={(e)=>e.currentTarget.style.color='#a83247'}
-                    onMouseLeave={(e)=>e.currentTarget.style.color='var(--text-muted)'}
-                    title="삭제">
-              <Trash2 size={13} strokeWidth={1.5} />
-            </button>
-          </div>
+          {expanded && onAddComment && (
+            <div style={{borderTop: '1px solid var(--border)'}}>
+              <CommentThread task={task} currentUser={currentUser}
+                             onAddComment={onAddComment} onDeleteComment={onDeleteComment} />
+            </div>
+          )}
         </li>
       );
     }
