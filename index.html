@@ -29,10 +29,9 @@
       --accent: #1e2746;
       --accent-soft: #5d6584;
       --warm: #b8a684;
-      --header-from: #2e3d5c;
-      --header-to: #3d4f73;
-      --header-mid: #354667;
-    }
+      --header-from: #1c2540;
+      --header-to: #2a3556;
+          }
     html, body { background: var(--bg); color: var(--text); }
     body {
       font-family: 'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
@@ -51,10 +50,19 @@
     /* View transitions */
     .fade-up { animation: fade-up 0.45s cubic-bezier(0.4, 0, 0.2, 1) both; }
     @keyframes fade-up { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
-    .stagger > * { opacity: 0; animation: fade-up 0.5s cubic-bezier(0.4, 0, 0.2, 1) forwards; }
-    .stagger > *:nth-child(1) { animation-delay: 0.00s; }
-    .stagger > *:nth-child(2) { animation-delay: 0.06s; }
-    .stagger > *:nth-child(3) { animation-delay: 0.12s; }
+    .stagger > * { opacity: 0; animation: fade-up 0.45s cubic-bezier(0.4, 0, 0.2, 1) forwards; }
+    .stagger > *:nth-child(1)  { animation-delay: 0.00s; }
+    .stagger > *:nth-child(2)  { animation-delay: 0.04s; }
+    .stagger > *:nth-child(3)  { animation-delay: 0.08s; }
+    .stagger > *:nth-child(4)  { animation-delay: 0.12s; }
+    .stagger > *:nth-child(5)  { animation-delay: 0.16s; }
+    .stagger > *:nth-child(6)  { animation-delay: 0.20s; }
+    .stagger > *:nth-child(7)  { animation-delay: 0.24s; }
+    .stagger > *:nth-child(8)  { animation-delay: 0.28s; }
+    .stagger > *:nth-child(9)  { animation-delay: 0.32s; }
+    .stagger > *:nth-child(10) { animation-delay: 0.36s; }
+    .stagger > *:nth-child(11) { animation-delay: 0.40s; }
+    .stagger > *:nth-child(12) { animation-delay: 0.44s; }
     .hero-card-bg { background-size: cover; background-position: center; position: absolute; inset: 0; opacity: 0.18; mix-blend-mode: luminosity; }
     .hero-overlay { position: absolute; inset: 0; background:
       radial-gradient(ellipse at 70% 25%, rgba(255,255,255,0.15) 0%, transparent 55%),
@@ -446,32 +454,21 @@
        ============================================================ */
     function BrandsView({ tasks, stats, onOpenBrand }) {
       const [selected, setSelected] = useState(null);
-      if (selected) {
-        const part = PARTS.find(p => p.id === selected);
-        const partBrands = BRANDS.filter(b => b.part === part.id);
-        return (
-          <ExpandedPart
-            key={selected}
-            part={part}
-            members={part.members.map(memberById)}
-            brands={partBrands}
-            tasks={tasks}
-            stats={stats}
-            onBack={() => setSelected(null)}
-            onOpenBrand={onOpenBrand}
-          />
-        );
-      }
+      const visibleParts = selected ? PARTS.filter(p => p.id === selected) : PARTS;
       return (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 stagger" key="grid">
-          {PARTS.map(part => (
+        <div className={`grid gap-4 transition-all duration-300 ${selected ? 'grid-cols-1' : 'grid-cols-1 md:grid-cols-3 stagger'}`}>
+          {visibleParts.map(part => (
             <PartHeroCard
               key={part.id}
               part={part}
               members={part.members.map(memberById)}
               brands={BRANDS.filter(b => b.part === part.id)}
+              tasks={tasks}
               stats={stats}
+              expanded={selected === part.id}
               onClick={() => setSelected(part.id)}
+              onClose={() => setSelected(null)}
+              onOpenBrand={onOpenBrand}
             />
           ))}
         </div>
@@ -479,22 +476,87 @@
     }
 
     const PART_THEME = {
-      part1: { from: '#2c3a55', to: '#4a5d85', accent: '#9bb1d8',
-               en: 'Personal Care',  sub: 'Daily Wellness Brands' },
-      part2: { from: '#264540', to: '#46716a', accent: '#9ec5bd',
+      part1: { from: '#2c3a55', to: '#4a5d85',
+               en: 'Personal Care',     sub: 'Daily Wellness Brands' },
+      part2: { from: '#264540', to: '#46716a',
                en: 'Beauty & Heritage', sub: 'Premium Lifestyle' },
-      part3: { from: '#523840', to: '#825461', accent: '#d3a8b3',
-               en: 'Health & Living', sub: 'Wellness Essentials' },
+      part3: { from: '#523840', to: '#825461',
+               en: 'Health & Living',   sub: 'Wellness Essentials' },
     };
 
-    function PartHeroCard({ part, members, brands, stats, onClick }) {
+    function PartHeroCard({ part, members, brands, tasks, stats, expanded, onClick, onClose, onOpenBrand }) {
       const t = PART_THEME[part.id];
       const totalActive = stats.byPartActive[part.id] || 0;
+      const total = stats.byPart[part.id] || 0;
+      const gradient = `linear-gradient(165deg, ${t.from} 0%, ${t.to} 100%)`;
+
+      if (expanded) {
+        return (
+          <div className="rounded-lg overflow-hidden fade-up"
+               style={{boxShadow: '0 1px 2px rgba(30,39,70,0.06), 0 18px 40px -22px rgba(30,39,70,0.32)'}}>
+            <div className="relative px-9 py-9" style={{background: gradient, color: 'white'}}>
+              <div className="hero-overlay"></div>
+              <div className="relative">
+                <button onClick={onClose}
+                        className="mb-5 inline-flex items-center gap-1.5 text-xs tracking-wider transition"
+                        style={{color: 'rgba(255,255,255,0.7)'}}
+                        onMouseEnter={(e) => e.currentTarget.style.color = 'white'}
+                        onMouseLeave={(e) => e.currentTarget.style.color = 'rgba(255,255,255,0.7)'}>
+                  <span style={{fontSize: '13px'}}>←</span> 모든 파트 보기
+                </button>
+                <div className="flex items-end justify-between gap-6 flex-wrap">
+                  <div>
+                    <div className="text-xs font-eyebrow uppercase mb-2" style={{color: 'rgba(255,255,255,0.65)'}}>
+                      {part.label} · {part.labelKo}
+                    </div>
+                    <h2 className="font-display tracking-tight mb-1.5" style={{fontSize: '40px', lineHeight: 1}}>
+                      {t.en}
+                    </h2>
+                    <div className="text-sm mb-3" style={{color: 'rgba(255,255,255,0.78)'}}>{t.sub}</div>
+                    <div className="text-xs" style={{color: 'rgba(255,255,255,0.6)'}}>
+                      {members.map(m => `${m.name} ${m.title}`).join(' · ')}
+                    </div>
+                  </div>
+                  <div className="flex items-baseline gap-7">
+                    <div>
+                      <div className="font-display tabular-nums" style={{fontSize: '32px', lineHeight: 1, fontWeight: 300}}>{brands.length}</div>
+                      <div className="text-xs font-eyebrow uppercase mt-1" style={{color: 'rgba(255,255,255,0.55)'}}>Brands</div>
+                    </div>
+                    <div>
+                      <div className="font-display tabular-nums" style={{fontSize: '32px', lineHeight: 1, fontWeight: 300}}>{totalActive}</div>
+                      <div className="text-xs font-eyebrow uppercase mt-1" style={{color: 'rgba(255,255,255,0.55)'}}>Active</div>
+                    </div>
+                    <div>
+                      <div className="font-display tabular-nums" style={{fontSize: '32px', lineHeight: 1, fontWeight: 300}}>{total}</div>
+                      <div className="text-xs font-eyebrow uppercase mt-1" style={{color: 'rgba(255,255,255,0.55)'}}>Total</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div className="px-7 py-7" style={{background: 'var(--surface)', borderTop: '1px solid var(--border)'}}>
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 stagger">
+                {brands.map(b => (
+                  <BrandCard
+                    key={b.id}
+                    brand={b}
+                    total={stats.byBrand[b.id] || 0}
+                    active={stats.byBrandActive[b.id] || 0}
+                    brandTasks={tasks.filter(task => task.brandId === b.id && task.status !== 'done')}
+                    onClick={() => onOpenBrand(b.id)}
+                  />
+                ))}
+              </div>
+            </div>
+          </div>
+        );
+      }
+
       return (
         <button onClick={onClick}
                 className="group relative rounded-lg overflow-hidden text-left transition-all duration-300"
                 style={{
-                  background: `linear-gradient(165deg, ${t.from} 0%, ${t.to} 100%)`,
+                  background: gradient,
                   minHeight: '420px', color: 'white',
                   boxShadow: '0 1px 2px rgba(30,39,70,0.05), 0 12px 28px -16px rgba(30,39,70,0.18)'
                 }}
@@ -529,71 +591,6 @@
             </div>
           </div>
         </button>
-      );
-    }
-
-    function ExpandedPart({ part, members, brands, tasks, stats, onBack, onOpenBrand }) {
-      const t = PART_THEME[part.id];
-      const totalActive = stats.byPartActive[part.id] || 0;
-      const total = stats.byPart[part.id] || 0;
-      return (
-        <div className="fade-up">
-          <button onClick={onBack}
-                  className="mb-4 inline-flex items-center gap-2 text-xs tracking-wider transition"
-                  style={{color: 'var(--text-muted)'}}
-                  onMouseEnter={(e) => e.currentTarget.style.color = 'var(--ink)'}
-                  onMouseLeave={(e) => e.currentTarget.style.color = 'var(--text-muted)'}>
-            <span style={{fontSize: '14px'}}>←</span> 모든 파트 보기
-          </button>
-          <div className="rounded-lg overflow-hidden mb-7"
-               style={{
-                 background: `linear-gradient(135deg, ${t.from} 0%, ${t.to} 100%)`,
-                 color: 'white',
-                 boxShadow: '0 1px 2px rgba(30,39,70,0.06), 0 18px 40px -22px rgba(30,39,70,0.32)'
-               }}>
-            <div className="hero-overlay" style={{position:'relative', height:0}}></div>
-            <div className="relative px-9 py-10 flex items-end justify-between gap-6 flex-wrap">
-              <div>
-                <div className="text-xs font-eyebrow uppercase mb-3" style={{color: 'rgba(255,255,255,0.65)'}}>
-                  {part.label} · {part.labelKo}
-                </div>
-                <h2 className="font-display tracking-tight mb-2" style={{fontSize: '44px', lineHeight: 1}}>
-                  {t.en}
-                </h2>
-                <div className="text-sm mb-4" style={{color: 'rgba(255,255,255,0.78)'}}>{t.sub}</div>
-                <div className="text-xs" style={{color: 'rgba(255,255,255,0.6)'}}>
-                  {members.map(m => `${m.name} ${m.title}`).join(' · ')}
-                </div>
-              </div>
-              <div className="flex items-baseline gap-6">
-                <div>
-                  <div className="font-display tabular-nums" style={{fontSize: '36px', lineHeight: 1, fontWeight: 300}}>{brands.length}</div>
-                  <div className="text-xs font-eyebrow uppercase mt-1" style={{color: 'rgba(255,255,255,0.55)'}}>Brands</div>
-                </div>
-                <div>
-                  <div className="font-display tabular-nums" style={{fontSize: '36px', lineHeight: 1, fontWeight: 300}}>{totalActive}</div>
-                  <div className="text-xs font-eyebrow uppercase mt-1" style={{color: 'rgba(255,255,255,0.55)'}}>Active</div>
-                </div>
-                <div>
-                  <div className="font-display tabular-nums" style={{fontSize: '36px', lineHeight: 1, fontWeight: 300}}>{total}</div>
-                  <div className="text-xs font-eyebrow uppercase mt-1" style={{color: 'rgba(255,255,255,0.55)'}}>Total</div>
-                </div>
-              </div>
-            </div>
-          </div>
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-            {brands.map(b => (
-              <BrandCard
-                key={b.id}
-                brand={b}
-                total={stats.byBrand[b.id] || 0}
-                active={stats.byBrandActive[b.id] || 0}
-                brandTasks={tasks.filter(task => task.brandId === b.id && task.status !== 'done')}
-                onClick={() => onOpenBrand(b.id)}
-              />
-            ))}
-          </div>
-        </div>
       );
     }
 
