@@ -614,8 +614,10 @@
         const byBrand = {}, byBrandActive = {}, byMember = {}, byMemberActive = {}, byMemberMentions = {}, byMemberReplies = {};
         const byPart = {}, byPartActive = {};
         tasks.forEach(t => {
-          byBrand[t.brandId] = (byBrand[t.brandId] || 0) + 1;
-          if (t.status !== 'done') byBrandActive[t.brandId] = (byBrandActive[t.brandId] || 0) + 1;
+          if (t.brandId && t.brandId !== '__all__') {
+            byBrand[t.brandId] = (byBrand[t.brandId] || 0) + 1;
+            if (t.status !== 'done') byBrandActive[t.brandId] = (byBrandActive[t.brandId] || 0) + 1;
+          }
           const ids = t.assigneeIds || (t.assigneeId ? [t.assigneeId] : []);
           ids.forEach(aid => {
             byMember[aid] = (byMember[aid] || 0) + 1;
@@ -1345,13 +1347,18 @@
         <li className="rounded-sm" style={{border:'1px solid var(--border)', background:'var(--surface)'}}>
           <div className="p-3">
             <div className="flex items-center gap-2 mb-1.5 flex-wrap">
-              {b && (
+              {b ? (
                 <button onClick={() => onOpenBrand(b.id)}
                         className="text-[10px] px-1.5 py-0.5 rounded-sm tracking-wider transition"
                         style={{background:'var(--surface-2)', color:'var(--ink-soft)', border:'1px solid var(--border)'}}>
                   {b.name.split('/')[0]}
                 </button>
-              )}
+              ) : item.task.brandId === '__all__' ? (
+                <span className="text-[10px] px-1.5 py-0.5 rounded-sm tracking-wider"
+                      style={{background:'var(--surface-2)', color:'var(--ink-soft)', border:'1px solid var(--border)'}}>
+                  전사 공용
+                </span>
+              ) : null}
               <span className="text-sm font-medium" style={{color:'var(--ink)'}}>{item.task.title}</span>
               <span className="text-[10px] px-1.5 py-0.5 rounded-sm tracking-wider"
                     style={{background:'rgba(201,169,97,0.15)', color:'#a37800', border:'1px solid #d6c08a'}}>
@@ -1834,10 +1841,10 @@
             </div>
             <div className="flex-1 min-w-0 cursor-pointer" onClick={() => setExpanded(e => !e)}>
               <div className="flex items-center gap-2 mb-1 flex-wrap">
-                {showBrand && b && (
+                {showBrand && (b || task.brandId === '__all__') && (
                   <span className="text-[10px] px-1.5 py-0.5 rounded-sm tracking-wider"
                         style={{background:'var(--surface-2)', color:'var(--ink-soft)', border:'1px solid var(--border)'}}>
-                    {b.name.split('/')[0]}
+                    {b ? b.name.split('/')[0] : '전사 공용'}
                   </span>
                 )}
                 <span className="text-sm" style={{color: isDone ? 'var(--text-faint)' : 'var(--ink)', textDecoration: isDone ? 'line-through' : 'none'}}>
@@ -2062,6 +2069,7 @@
                       className="w-full rounded-sm px-3 py-2 text-sm outline-none transition"
                       style={{background:'var(--surface)', border:'1px solid var(--border)', color:'var(--ink)'}}>
                 <option value="">— 브랜드 선택 —</option>
+                <option value="__all__">모든 브랜드 (전사 공용)</option>
                 {(() => {
                   const podLock = (initial?.assigneeIds || []).map(memberById).find(m => m && m.group !== 'head');
                   const podFilter = podLock ? podLock.group : null;
