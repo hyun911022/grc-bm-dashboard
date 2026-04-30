@@ -450,8 +450,9 @@
     }
 
     function App() {
-      const [view, setView] = useState('members');
+      const [view, setView] = useState('board');
       const [tasks, setTasks] = useState([]);
+      const [posts, setPosts] = useState([]);
       const [loaded, setLoaded] = useState(false);
       const [openBrand, setOpenBrand] = useState(null);
       const [openMember, setOpenMember] = useState(null);
@@ -484,6 +485,17 @@
           snap.forEach(doc => { map[doc.id] = doc.data().pin || '0000'; });
           setPins(map);
         }, err => console.error('pins onSnapshot error:', err));
+        return () => unsub();
+      }, []);
+
+      // Firestore real-time sync: posts (board)
+      useEffect(() => {
+        const unsub = window.db.collection('posts').onSnapshot(snap => {
+          const arr = [];
+          snap.forEach(doc => arr.push({ ...doc.data(), id: doc.id }));
+          arr.sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
+          setPosts(arr);
+        }, err => console.error('posts onSnapshot error:', err));
         return () => unsub();
       }, []);
 
@@ -539,6 +551,45 @@
         const t = tasks.find(x => x.id === taskId);
         if (!t) return;
         await updateTask(taskId, { comments: (t.comments || []).filter(c => c.id !== commentId) });
+      };
+
+      // Posts CRUD (board)
+      const addPost = async (body) => {
+        const id = 'p_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
+        const p = {
+          id, authorId: currentUser, body,
+          comments: [],
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        };
+        try { await window.db.collection('posts').doc(id).set(p); }
+        catch (e) { console.error('addPost failed', e); alert('게시 실패: ' + e.message); }
+      };
+      const updatePost = async (id, patch) => {
+        try {
+          await window.db.collection('posts').doc(id).update({
+            ...patch, updatedAt: new Date().toISOString(),
+          });
+        } catch (e) { console.error('updatePost failed', e); }
+      };
+      const deletePost = async (id) => {
+        try { await window.db.collection('posts').doc(id).delete(); }
+        catch (e) { console.error('deletePost failed', e); }
+      };
+      const addPostComment = async (postId, body) => {
+        const p = posts.find(x => x.id === postId);
+        if (!p) return;
+        const c = {
+          id: 'c_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5),
+          authorId: currentUser, body,
+          createdAt: new Date().toISOString(),
+        };
+        await updatePost(postId, { comments: [...(p.comments || []), c] });
+      };
+      const deletePostComment = async (postId, commentId) => {
+        const p = posts.find(x => x.id === postId);
+        if (!p) return;
+        await updatePost(postId, { comments: (p.comments || []).filter(c => c.id !== commentId) });
       };
 
       const addTask = async (data) => {
@@ -671,20 +722,32 @@
           <main className="max-w-6xl mx-auto px-8 py-12">
             <div className="mb-8 pb-5 flex items-end justify-between gap-4 flex-wrap" style={{borderBottom:'1px solid var(--border)'}}>
               <h2 className="font-display text-xl tracking-tight" style={{color:'var(--text-faint)'}}>
-                {view === 'brands' ? '브랜드 포트폴리오' : '담당자별 아젠다'}
+                {view === 'board' ? '팀 게시판' : view === 'brands' ? '브랜드 포트폴리오' : '담당자별 아젠다'}
               </h2>
               <div className="flex items-center gap-2">
-                <button
-                  onClick={() => setShowAdd(true)}
-                  className="text-xs px-4 py-1.5 rounded-full transition tracking-wide flex items-center gap-1.5"
-                  style={{background:'transparent', color:'var(--ink)', border:'1px solid var(--ink)', fontWeight:500}}
-                  onMouseEnter={(e)=>{e.currentTarget.style.background='var(--ink)';e.currentTarget.style.color='white';}}
-                  onMouseLeave={(e)=>{e.currentTarget.style.background='transparent';e.currentTarget.style.color='var(--ink)';}}>
-                  <Plus size={12} strokeWidth={2.2} /> 새 작업
-                </button>
+                {view !== 'board' && (
+                  <button
+                    onClick={() => setShowAdd(true)}
+                    className="text-xs px-4 py-1.5 rounded-full transition tracking-wide flex items-center gap-1.5"
+                    style={{background:'transparent', color:'var(--ink)', border:'1px solid var(--ink)', fontWeight:500}}
+                    onMouseEnter={(e)=>{e.currentTarget.style.background='var(--ink)';e.currentTarget.style.color='white';}}
+                    onMouseLeave={(e)=>{e.currentTarget.style.background='transparent';e.currentTarget.style.color='var(--ink)';}}>
+                    <Plus size={12} strokeWidth={2.2} /> 새 작업
+                  </button>
+                )}
               </div>
             </div>
-            {view === 'brands' ? (
+            {view === 'board' ? (
+              <BoardView
+                posts={posts}
+                currentUser={currentUser}
+                onAdd={addPost}
+                onUpdate={updatePost}
+                onDelete={deletePost}
+                onAddComment={addPostComment}
+                onDeleteComment={deletePostComment}
+              />
+            ) : view === 'brands' ? (
               <BrandsView
                 tasks={tasks}
                 stats={stats}
@@ -752,7 +815,7 @@
        HEADER (Grace-style brand bar)
        ============================================================ */
     function Header({ view, setView, currentUser, onLogout, pins, onSetPin, onResetPin }) {
-      const reload = () => { window.scrollTo({top:0, behavior:'smooth'}); setView('members'); setTimeout(() => window.location.reload(), 50); };
+      const reload = () => { window.scrollTo({top:0, behavior:'smooth'}); setView('board'); setTimeout(() => window.location.reload(), 50); };
       const me = memberById(currentUser);
       const headerBg = 'linear-gradient(180deg, var(--header-from) 0%, var(--header-to) 100%)';
       const textCol = 'rgba(255,255,255,0.92)';
@@ -776,6 +839,7 @@
             </button>
             <div className="flex items-center gap-5">
               <div className="flex items-center">
+                <TabBtn active={view === 'board'}   onClick={() => setView('board')}   label="게시판" sub="Board" />
                 <TabBtn active={view === 'members'} onClick={() => setView('members')} label="담당자" sub="People" />
                 <TabBtn active={view === 'brands'}  onClick={() => setView('brands')}  label="브랜드" sub="Brands" last />
               </div>
@@ -965,6 +1029,164 @@
     /* ============================================================
        BRANDS VIEW (Accordion: parts collapse; click to expand)
        ============================================================ */
+    function formatRelativeTime(iso) {
+      const d = new Date(iso);
+      const diff = Date.now() - d.getTime();
+      const sec = Math.floor(diff / 1000);
+      if (sec < 60) return '방금';
+      const min = Math.floor(sec / 60);
+      if (min < 60) return min + '분 전';
+      const hr = Math.floor(min / 60);
+      if (hr < 24) return hr + '시간 전';
+      const day = Math.floor(hr / 24);
+      if (day < 7) return day + '일 전';
+      return (d.getMonth() + 1) + '/' + d.getDate();
+    }
+
+    function BoardView({ posts, currentUser, onAdd, onUpdate, onDelete, onAddComment, onDeleteComment }) {
+      const [draft, setDraft] = useState('');
+      const me = memberById(currentUser);
+      const submit = () => {
+        if (!draft.trim()) return;
+        onAdd(draft.trim());
+        setDraft('');
+      };
+      return (
+        <div className="space-y-4">
+          {/* Composer */}
+          <div className="rounded-md p-5" style={{background:'var(--surface)', border:'1px solid var(--border)'}}>
+            <div className="flex items-baseline gap-2 mb-2">
+              <span className="text-sm font-medium" style={{color:'var(--ink)'}}>{me?.name}</span>
+              <span className="text-xs" style={{color:'var(--text-muted)'}}>{me?.title}</span>
+              <span className="text-[10px] tracking-wider uppercase font-eyebrow ml-1" style={{color:'var(--text-faint)'}}>새 글</span>
+            </div>
+            <MentionInput
+              value={draft}
+              onChange={setDraft}
+              placeholder="공유하고 싶은 내용을 작성하세요. @로 멤버 멘션."
+              rows={3}
+              className="w-full bg-transparent text-sm py-2 outline-none leading-relaxed"
+              style={{color:'var(--text)', minHeight:'72px'}}
+            />
+            <div className="flex items-center justify-between pt-2 mt-2" style={{borderTop:'1px solid var(--border)'}}>
+              <span className="text-[10px] tracking-wide" style={{color:'var(--text-faint)'}}>
+                팀 전체에 공유됩니다
+              </span>
+              <button onClick={submit} disabled={!draft.trim()}
+                      className="text-xs px-4 py-1.5 rounded-full transition disabled:opacity-30 disabled:cursor-not-allowed"
+                      style={{background:'var(--ink)', color:'white'}}>
+                게시
+              </button>
+            </div>
+          </div>
+          {/* Posts */}
+          {posts.length === 0 ? (
+            <div className="text-center py-16 rounded-md" style={{background:'var(--surface)', border:'1px solid var(--border)'}}>
+              <p className="text-sm" style={{color:'var(--text-muted)'}}>아직 게시글이 없습니다</p>
+              <p className="text-xs mt-1" style={{color:'var(--text-faint)'}}>첫 번째 글을 작성해보세요</p>
+            </div>
+          ) : (
+            <ul className="space-y-3">
+              {posts.map(p => (
+                <PostCard key={p.id} post={p}
+                  currentUser={currentUser}
+                  onUpdate={onUpdate}
+                  onDelete={onDelete}
+                  onAddComment={onAddComment}
+                  onDeleteComment={onDeleteComment} />
+              ))}
+            </ul>
+          )}
+        </div>
+      );
+    }
+
+    function PostCard({ post, currentUser, onUpdate, onDelete, onAddComment, onDeleteComment }) {
+      const [expanded, setExpanded] = useState(false);
+      const [editing, setEditing] = useState(false);
+      const [draft, setDraft] = useState(post.body);
+      const author = memberById(post.authorId);
+      const isMine = post.authorId === currentUser;
+      const canEdit = isMine || currentUser === 'lee_dh';
+      const commentCount = (post.comments || []).length;
+      const when = formatRelativeTime(post.createdAt);
+
+      const saveEdit = () => {
+        if (!draft.trim()) return;
+        onUpdate(post.id, { body: draft.trim() });
+        setEditing(false);
+      };
+
+      return (
+        <li className="rounded-md transition" style={{background:'var(--surface)', border:'1px solid var(--border)'}}>
+          <div className="p-4">
+            <div className="flex items-start justify-between mb-2">
+              <div className="flex items-baseline gap-2 flex-wrap">
+                <span className="text-sm font-medium" style={{color:'var(--ink)'}}>{author?.name || '—'}</span>
+                <span className="text-xs" style={{color:'var(--text-muted)'}}>{author?.title || ''}</span>
+                <span className="text-[10px] tracking-wide" style={{color:'var(--text-faint)'}}>· {when}</span>
+                {post.updatedAt && post.updatedAt !== post.createdAt && (
+                  <span className="text-[10px] tracking-wide" style={{color:'var(--text-faint)'}}>· 수정됨</span>
+                )}
+              </div>
+              {canEdit && (
+                <div className="flex gap-1 opacity-60 hover:opacity-100 transition flex-shrink-0">
+                  {isMine && (
+                    <button onClick={() => { setDraft(post.body); setEditing(e => !e); }}
+                            className="p-1 transition" style={{color:'var(--text-muted)'}}
+                            onMouseEnter={(e)=>e.currentTarget.style.color='var(--ink)'}
+                            onMouseLeave={(e)=>e.currentTarget.style.color='var(--text-muted)'}
+                            title="수정">
+                      <Edit3 size={13} strokeWidth={1.5} />
+                    </button>
+                  )}
+                  <button onClick={() => { if (confirm('게시글을 삭제하시겠습니까?')) onDelete(post.id); }}
+                          className="p-1 transition" style={{color:'var(--text-muted)'}}
+                          onMouseEnter={(e)=>e.currentTarget.style.color='#a83247'}
+                          onMouseLeave={(e)=>e.currentTarget.style.color='var(--text-muted)'}
+                          title="삭제">
+                    <Trash2 size={13} strokeWidth={1.5} />
+                  </button>
+                </div>
+              )}
+            </div>
+            {editing ? (
+              <div>
+                <MentionInput value={draft} onChange={setDraft} rows={3}
+                  className="w-full bg-transparent text-sm py-2 outline-none leading-relaxed"
+                  style={{color:'var(--text)', borderBottom:'1px solid var(--border-strong)', minHeight:'72px'}} />
+                <div className="flex justify-end gap-2 mt-2">
+                  <button onClick={() => { setEditing(false); setDraft(post.body); }}
+                          className="text-xs px-3 py-1" style={{color:'var(--text-muted)'}}>취소</button>
+                  <button onClick={saveEdit} disabled={!draft.trim()}
+                          className="text-xs px-3 py-1 rounded-sm disabled:opacity-30"
+                          style={{background:'var(--ink)', color:'white'}}>저장</button>
+                </div>
+              </div>
+            ) : (
+              <p className="text-sm leading-relaxed" style={{color:'var(--text)'}}>
+                <RichText text={post.body} />
+              </p>
+            )}
+            <div className="mt-3 flex items-center gap-3">
+              <button onClick={() => setExpanded(e => !e)}
+                      className="text-xs transition flex items-center gap-1.5 px-2 py-0.5 rounded-sm"
+                      style={{color: expanded ? 'var(--ink)' : commentCount > 0 ? 'var(--ink-soft)' : 'var(--text-faint)',
+                              background: expanded ? 'var(--surface-2)' : 'transparent'}}>
+                💬 {commentCount > 0 ? '댓글 ' + commentCount : '댓글'}
+              </button>
+            </div>
+          </div>
+          {expanded && (
+            <div style={{borderTop:'1px solid var(--border)'}}>
+              <CommentThread task={post} currentUser={currentUser}
+                             onAddComment={onAddComment} onDeleteComment={onDeleteComment} />
+            </div>
+          )}
+        </li>
+      );
+    }
+
     function BrandsView({ tasks, stats, onOpenBrand }) {
       const [selected, setSelected] = useState(null);
       const toggle = (id) => setSelected(prev => prev === id ? null : id);
