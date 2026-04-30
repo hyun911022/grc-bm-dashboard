@@ -1110,24 +1110,44 @@
               </button>
             </div>
           </div>
-          {/* Filter tabs */}
-          <div className="flex items-center gap-5 pb-3" style={{borderBottom:'1px solid var(--border)'}}>
+          {/* Filter pill toggle */}
+          <div className="inline-flex items-center gap-1 p-1 rounded-full"
+               style={{background:'var(--surface)', border:'1px solid var(--border)'}}>
             <button onClick={() => setFilter('all')}
-                    className="text-sm tracking-wide transition flex items-baseline gap-1.5"
-                    style={{color: filter === 'all' ? 'var(--ink)' : 'var(--text-muted)',
-                            fontWeight: filter === 'all' ? 500 : 400}}>
-              전체 글 <span className="text-xs tabular-nums" style={{color:'var(--text-faint)'}}>{posts.length}</span>
+                    className="text-sm tracking-wide transition flex items-center gap-2 px-4 py-1.5 rounded-full"
+                    style={{
+                      color: filter === 'all' ? 'white' : 'var(--text-muted)',
+                      background: filter === 'all' ? 'var(--ink)' : 'transparent',
+                      fontWeight: filter === 'all' ? 500 : 400,
+                    }}>
+              전체 글
+              <span className="text-xs tabular-nums px-1.5 py-0.5 rounded-full"
+                    style={{
+                      background: filter === 'all' ? 'rgba(255,255,255,0.18)' : 'var(--surface-2)',
+                      color: filter === 'all' ? 'rgba(255,255,255,0.9)' : 'var(--text-faint)',
+                      minWidth: '22px', textAlign: 'center', display:'inline-block'
+                    }}>
+                {posts.length}
+              </span>
             </button>
             <button onClick={() => setFilter('mentions')}
-                    className="text-sm tracking-wide transition flex items-baseline gap-1.5"
-                    style={{color: filter === 'mentions' ? 'var(--ink)' : 'var(--text-muted)',
-                            fontWeight: filter === 'mentions' ? 500 : 400}}>
-              내 @멘션
-              <span className="text-xs px-1.5 py-0.5 rounded-sm tabular-nums"
+                    className="text-sm tracking-wide transition flex items-center gap-2 px-4 py-1.5 rounded-full"
                     style={{
-                      color: mentionsCount > 0 ? '#2563eb' : 'var(--text-faint)',
-                      background: mentionsCount > 0 ? 'rgba(37,99,235,0.1)' : 'transparent',
-                      fontWeight: 500
+                      color: filter === 'mentions' ? 'white' : (mentionsCount > 0 ? '#2563eb' : 'var(--text-muted)'),
+                      background: filter === 'mentions' ? '#2563eb' : 'transparent',
+                      fontWeight: filter === 'mentions' || mentionsCount > 0 ? 500 : 400,
+                    }}>
+              내 @멘션
+              <span className="text-xs tabular-nums px-1.5 py-0.5 rounded-full"
+                    style={{
+                      background: filter === 'mentions'
+                        ? 'rgba(255,255,255,0.22)'
+                        : (mentionsCount > 0 ? 'rgba(37,99,235,0.12)' : 'var(--surface-2)'),
+                      color: filter === 'mentions'
+                        ? 'white'
+                        : (mentionsCount > 0 ? '#2563eb' : 'var(--text-faint)'),
+                      minWidth: '22px', textAlign: 'center', display:'inline-block',
+                      fontWeight: 600,
                     }}>
                 {mentionsCount}
               </span>
