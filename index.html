@@ -1715,7 +1715,7 @@
                         {author?.name || '—'} <span style={{color:'var(--text-muted)', fontWeight:400}}>{author?.title || ''}</span>
                       </span>
                       <span style={{color:'var(--text-faint)', fontSize:'10px'}}>{when}</span>
-                      {isMine && (
+                      {(isMine || currentUser === 'lee_dh') && (
                         <button onClick={() => onDeleteComment(task.id, c.id)}
                                 className="ml-auto opacity-0 hover:opacity-100"
                                 style={{color:'var(--text-faint)', fontSize:'10px'}}>
@@ -1823,7 +1823,7 @@
       const assigneeIds_ = task.assigneeIds || (task.assigneeId ? [task.assigneeId] : []);
       const isAssignee = assigneeIds_.includes(currentUser);
       const isAuthor = task.createdBy === currentUser;
-      const canEditTask = isAssignee || isAuthor;
+      const canEditTask = isAssignee || isAuthor || currentUser === 'lee_dh';
       const commentCount = (task.comments || []).length;
       const descMentions = extractMentionIds(task.description || '');
       const cmtMentions = extractMentionIds((task.comments || []).map(c => c.body).join(' '));
@@ -1867,7 +1867,7 @@
               )}
               <div className="flex items-center gap-3 mt-1.5 text-[10px] tracking-wide flex-wrap" style={{color:'var(--text-muted)'}}>
                 <StatusButtons task={task} currentStatus={task.status}
-                  canEdit={isAssignee}
+                  canEdit={isAssignee || currentUser === 'lee_dh'}
                   onChange={(next) => onChangeStatus && onChangeStatus(task.id, next)} />
                 {assignees.length > 0 && (
                   <span className="flex items-center gap-1">
