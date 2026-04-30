@@ -460,6 +460,7 @@
       const [editingTask, setEditingTask] = useState(null);
       const [currentUser, setCurrentUser] = useState(null);
       const [pins, setPins] = useState({});
+      const [emojis, setEmojis] = useState({});
       const [mustSetPin, setMustSetPin] = useState(false);
 
       // Firestore real-time sync: tasks
@@ -477,13 +478,19 @@
         return () => unsub();
       }, []);
 
-      // Firestore real-time sync: pins
+      // Firestore real-time sync: pins (also stores per-user emoji avatar)
       useEffect(() => {
         const unsub = window.db.collection('pins').onSnapshot(snap => {
-          const map = {};
-          MEMBERS.forEach(m => { map[m.id] = '0000'; });
-          snap.forEach(doc => { map[doc.id] = doc.data().pin || '0000'; });
-          setPins(map);
+          const pinMap = {};
+          const emojiMap = {};
+          MEMBERS.forEach(m => { pinMap[m.id] = '0000'; emojiMap[m.id] = ''; });
+          snap.forEach(doc => {
+            const data = doc.data() || {};
+            pinMap[doc.id] = data.pin || '0000';
+            emojiMap[doc.id] = data.emoji || '';
+          });
+          setPins(pinMap);
+          setEmojis(emojiMap);
         }, err => console.error('pins onSnapshot error:', err));
         return () => unsub();
       }, []);
@@ -525,13 +532,17 @@
         try { localStorage.removeItem(USER_KEY); } catch {}
       };
       const setPin = async (id, pin) => {
-        try { await window.db.collection('pins').doc(id).set({ pin }); }
+        try { await window.db.collection('pins').doc(id).set({ pin }, { merge: true }); }
         catch (e) { console.error('setPin failed', e); alert('비밀번호 저장 실패: ' + e.message); return; }
         if (id === currentUser && pin !== '0000') setMustSetPin(false);
       };
       const resetPinAdmin = async (id) => {
-        try { await window.db.collection('pins').doc(id).set({ pin: '0000' }); }
+        try { await window.db.collection('pins').doc(id).set({ pin: '0000' }, { merge: true }); }
         catch (e) { console.error('resetPin failed', e); }
+      };
+      const setMyEmoji = async (emoji) => {
+        try { await window.db.collection('pins').doc(currentUser).set({ emoji }, { merge: true }); }
+        catch (e) { console.error('setEmoji failed', e); alert('이모티콘 저장 실패: ' + e.message); }
       };
       const resetPin = (id) => resetPinAdmin(id);
 
@@ -719,7 +730,7 @@
 
       return (
         <div className="min-h-screen" style={{background:'var(--bg)', color:'var(--text)'}}>
-          <Header view={view} setView={setView} currentUser={currentUser} onLogout={logout} pins={pins} onSetPin={setPin} onResetPin={resetPin} />
+          <Header view={view} setView={setView} currentUser={currentUser} onLogout={logout} pins={pins} emojis={emojis} onSetPin={setPin} onSetEmoji={setMyEmoji} onResetPin={resetPin} />
 
           <main className="max-w-6xl mx-auto px-8 py-12">
             <div className="mb-8 pb-5 flex items-end justify-between gap-4 flex-wrap" style={{borderBottom:'1px solid var(--border)'}}>
@@ -743,6 +754,7 @@
               <BoardView
                 posts={posts}
                 currentUser={currentUser}
+                emojis={emojis}
                 onAdd={addPost}
                 onUpdate={updatePost}
                 onDelete={deletePost}
@@ -816,7 +828,7 @@
     /* ============================================================
        HEADER (Grace-style brand bar)
        ============================================================ */
-    function Header({ view, setView, currentUser, onLogout, pins, onSetPin, onResetPin }) {
+    function Header({ view, setView, currentUser, onLogout, pins, emojis, onSetPin, onSetEmoji, onResetPin }) {
       const reload = () => { window.scrollTo({top:0, behavior:'smooth'}); setView('board'); setTimeout(() => window.location.reload(), 50); };
       const me = memberById(currentUser);
       const headerBg = 'linear-gradient(180deg, var(--header-from) 0%, var(--header-to) 100%)';
@@ -846,7 +858,7 @@
                 <TabBtn active={view === 'brands'}  onClick={() => setView('brands')}  label="브랜드" sub="Brands" last />
               </div>
               <span className="hidden md:inline-block w-px h-5" style={{background: dividerCol}}></span>
-              <UserPicker currentUser={currentUser} onLogout={onLogout} pins={pins} onSetPin={onSetPin} onResetPin={onResetPin} />
+              <UserPicker currentUser={currentUser} onLogout={onLogout} pins={pins} emojis={emojis} onSetPin={onSetPin} onSetEmoji={onSetEmoji} onResetPin={onResetPin} />
             </div>
           </div>
         </header>
@@ -863,11 +875,13 @@
       );
     }
 
-    function UserPicker({ currentUser, onLogout, pins, onSetPin, onResetPin }) {
+    function UserPicker({ currentUser, onLogout, pins, emojis, onSetPin, onSetEmoji, onResetPin }) {
       const [open, setOpen] = useState(false);
       const [showPwModal, setShowPwModal] = useState(false);
       const [showAdmin, setShowAdmin] = useState(false);
+      const [showEmojiModal, setShowEmojiModal] = useState(false);
       const me = memberById(currentUser);
+      const myEmoji = emojis?.[currentUser] || '';
       const isAdmin = currentUser === 'lee_dh';
       useEffect(() => {
         if (!open) return;
@@ -881,13 +895,19 @@
             <button onClick={() => setOpen(o => !o)}
                     className="flex items-center gap-2 text-xs px-2.5 py-1.5 rounded-full transition"
                     style={{background:'rgba(255,255,255,0.08)', color:'rgba(255,255,255,0.85)', border:'1px solid rgba(255,255,255,0.12)'}}>
-              <span className="w-1.5 h-1.5 rounded-full" style={{background:'#7a8c5e'}}></span>
+              {myEmoji
+                ? <span style={{fontSize:'13px', lineHeight:1}}>{myEmoji}</span>
+                : <span className="w-1.5 h-1.5 rounded-full" style={{background:'#7a8c5e'}}></span>}
               <span className="font-medium">{me?.name || '—'}</span>
               <span style={{color:'rgba(255,255,255,0.55)'}}>{me?.title || ''}</span>
               <ChevronDown size={11} strokeWidth={1.5} style={{opacity:0.6}} />
             </button>
             {open && (
-              <div className="absolute right-0 mt-1 mention-popup" style={{minWidth:'200px'}}>
+              <div className="absolute right-0 mt-1 mention-popup" style={{minWidth:'220px'}}>
+                <button className="mention-popup-item" onClick={() => { setShowEmojiModal(true); setOpen(false); }}>
+                  <span style={{flex:1}}>이모티콘 변경</span>
+                  <span style={{fontSize:'15px'}}>{myEmoji || '🙂'}</span>
+                </button>
                 <button className="mention-popup-item" onClick={() => { setShowPwModal(true); setOpen(false); }}>
                   <span style={{flex:1}}>비밀번호 변경</span>
                 </button>
@@ -915,6 +935,12 @@
               pins={pins}
               onResetPin={onResetPin}
               onClose={() => setShowAdmin(false)} />
+          )}
+          {showEmojiModal && (
+            <EmojiPickerModal
+              currentEmoji={myEmoji}
+              onSave={async (e) => { await onSetEmoji(e); setShowEmojiModal(false); }}
+              onClose={() => setShowEmojiModal(false)} />
           )}
         </>
       );
@@ -1010,6 +1036,73 @@
       );
     }
 
+    const EMOJI_OPTIONS = [
+      '😀','😎','🤓','🥸','🤠','🥳','🤖','🥷',
+      '🦊','🐱','🐶','🐼','🦁','🐯','🐻','🦄',
+      '🐰','🐢','🦉','🦋','🐝','🦒','🐳','🐙',
+      '🌸','🌻','🌿','🌵','🌙','⭐','✨','🌈',
+      '🔥','⚡','🚀','🎨','🎵','📚','⚽','☕',
+    ];
+
+    function EmojiPickerModal({ currentEmoji, onSave, onClose }) {
+      const [picked, setPicked] = useState(currentEmoji || '');
+      return (
+        <Modal onClose={onClose}>
+          <div className="px-8 py-6 flex items-center justify-between" style={{borderBottom:'1px solid var(--border)'}}>
+            <div>
+              <div className="text-[10px] tracking-[0.3em] uppercase mb-1.5 font-eyebrow" style={{color:'var(--text-faint)'}}>My Avatar</div>
+              <h2 className="font-display text-2xl tracking-tight" style={{color:'var(--ink)'}}>이모티콘 변경</h2>
+            </div>
+            <button onClick={onClose} style={{color:'var(--text-muted)'}}>
+              <XIcon size={18} strokeWidth={1.5} />
+            </button>
+          </div>
+          <div className="px-8 py-6">
+            <p className="text-sm mb-5" style={{color:'var(--text-muted)'}}>
+              게시글·댓글에 표시될 본인의 아바타입니다. 마음에 드는 하나를 골라주세요.
+            </p>
+            <div className="grid gap-2 mb-5" style={{gridTemplateColumns: 'repeat(8, minmax(0, 1fr))'}}>
+              {EMOJI_OPTIONS.map(e => (
+                <button key={e} type="button" onClick={() => setPicked(e)}
+                        className="aspect-square rounded-md flex items-center justify-center transition"
+                        style={{
+                          background: picked === e ? 'var(--surface-2)' : 'var(--surface)',
+                          border: '1px solid ' + (picked === e ? 'var(--ink)' : 'var(--border)'),
+                          fontSize: '22px', lineHeight: 1,
+                          transform: picked === e ? 'scale(1.05)' : 'scale(1)',
+                        }}>
+                  {e}
+                </button>
+              ))}
+            </div>
+            <div className="flex items-center justify-between pt-4" style={{borderTop:'1px solid var(--border)'}}>
+              <div className="flex items-center gap-3">
+                <span className="text-xs" style={{color:'var(--text-muted)'}}>선택됨</span>
+                <div className="rounded-full flex items-center justify-center"
+                     style={{width:'40px', height:'40px', background: 'var(--surface-2)', border: '1px solid var(--border-strong)'}}>
+                  <span style={{fontSize:'22px', lineHeight:1}}>{picked || '·'}</span>
+                </div>
+              </div>
+              <div className="flex gap-2">
+                {currentEmoji && picked !== '' && (
+                  <button onClick={() => setPicked('')}
+                          className="text-xs px-3 py-2" style={{color:'var(--text-muted)'}}>
+                    이모티콘 해제
+                  </button>
+                )}
+                <button onClick={onClose} className="text-xs px-3 py-2" style={{color:'var(--text-muted)'}}>취소</button>
+                <button onClick={() => onSave(picked)} disabled={picked === currentEmoji}
+                        className="text-xs px-5 py-2 rounded-sm disabled:opacity-30 disabled:cursor-not-allowed"
+                        style={{background:'var(--ink)', color:'white'}}>
+                  저장
+                </button>
+              </div>
+            </div>
+          </div>
+        </Modal>
+      );
+    }
+
     function TabBtn({ active, onClick, label, sub, last }) {
       return (
         <button onClick={onClick} className={`px-1 py-2 transition group relative ${last ? '' : 'mr-7'}`}>
@@ -1045,7 +1138,7 @@
       return (d.getMonth() + 1) + '/' + d.getDate();
     }
 
-    function BoardView({ posts, currentUser, onAdd, onUpdate, onDelete, onAddComment, onDeleteComment }) {
+    function BoardView({ posts, currentUser, emojis, onAdd, onUpdate, onDelete, onAddComment, onDeleteComment }) {
       const [title, setTitle] = useState('');
       const [body, setBody] = useState('');
       const [filter, setFilter] = useState('all'); // 'all' | 'mentions'
@@ -1174,6 +1267,7 @@
               {visiblePosts.map(p => (
                 <PostCard key={p.id} post={p}
                   currentUser={currentUser}
+                  emojis={emojis}
                   initiallyExpanded={filter === 'mentions'}
                   onUpdate={onUpdate}
                   onDelete={onDelete}
@@ -1186,7 +1280,7 @@
       );
     }
 
-    function PostCard({ post, currentUser, initiallyExpanded, onUpdate, onDelete, onAddComment, onDeleteComment }) {
+    function PostCard({ post, currentUser, emojis, initiallyExpanded, onUpdate, onDelete, onAddComment, onDeleteComment }) {
       const [expanded, setExpanded] = useState(!!initiallyExpanded);
       const [editing, setEditing] = useState(false);
       const [draftTitle, setDraftTitle] = useState(post.title || '');
@@ -1220,19 +1314,24 @@
           <div className="p-4">
             <div className="flex items-start justify-between mb-3 gap-3">
               <div className="flex items-center gap-3 min-w-0">
-                {author && (
-                  <div className="flex-shrink-0 rounded-full flex items-center justify-center"
-                       style={{
-                         width: '36px', height: '36px',
-                         background: colorOfMember(author),
-                         color: 'white',
-                         fontSize: '14px',
-                         fontWeight: 600,
-                         letterSpacing: '-0.01em',
-                       }}>
-                    {(author.name || '').charAt(0)}
-                  </div>
-                )}
+                {author && (() => {
+                  const emoji = emojis?.[author.id] || '';
+                  return (
+                    <div className="flex-shrink-0 rounded-full flex items-center justify-center"
+                         style={{
+                           width: '36px', height: '36px',
+                           background: emoji ? 'var(--surface-2)' : colorOfMember(author),
+                           color: 'white',
+                           fontSize: emoji ? '20px' : '14px',
+                           fontWeight: 600,
+                           letterSpacing: '-0.01em',
+                           border: emoji ? '1px solid ' + colorOfMember(author) : 'none',
+                           lineHeight: 1,
+                         }}>
+                      {emoji || (author.name || '').charAt(0)}
+                    </div>
+                  );
+                })()}
                 <div className="min-w-0">
                   <div className="flex items-baseline gap-1.5 flex-wrap">
                     <span style={{color:'var(--ink)', fontSize:'15px', fontWeight:600, letterSpacing:'-0.01em'}}>
