@@ -675,7 +675,7 @@
       }, [isAnyOpen]);
 
       const stats = useMemo(() => {
-        const byBrand = {}, byBrandActive = {}, byMember = {}, byMemberActive = {}, byMemberMentions = {}, byMemberReplies = {};
+        const byBrand = {}, byBrandActive = {}, byMember = {}, byMemberActive = {}, byMemberPending = {}, byMemberMentions = {}, byMemberReplies = {};
         const byPart = {}, byPartActive = {};
         tasks.forEach(t => {
           if (t.brandId && t.brandId !== '__all__') {
@@ -686,6 +686,7 @@
           ids.forEach(aid => {
             byMember[aid] = (byMember[aid] || 0) + 1;
             if (t.status !== 'done') byMemberActive[aid] = (byMemberActive[aid] || 0) + 1;
+            if (t.status === 'pending') byMemberPending[aid] = (byMemberPending[aid] || 0) + 1;
           });
           // count mentions in description + comments
           extractMentionIds(t.description || '').forEach(mid => {
@@ -708,7 +709,7 @@
         const active = tasks.filter(t => t.status !== 'done').length;
         const inProgress = tasks.filter(t => t.status === 'in_progress').length;
         const overdue = tasks.filter(t => t.status !== 'done' && t.dueDate && daysUntil(t.dueDate) < 0).length;
-        return { byBrand, byBrandActive, byMember, byMemberActive, byMemberMentions, byMemberReplies, byPart, byPartActive, active, inProgress, overdue, total: tasks.length };
+        return { byBrand, byBrandActive, byMember, byMemberActive, byMemberPending, byMemberMentions, byMemberReplies, byPart, byPartActive, active, inProgress, overdue, total: tasks.length };
       }, [tasks]);
 
       if (!loaded) {
@@ -1615,6 +1616,7 @@
                   key={m.id}
                   member={m}
                   active={stats.byMemberActive[m.id] || 0}
+                  pendingCount={stats.byMemberPending[m.id] || 0}
                   mentionCount={stats.byMemberMentions[m.id] || 0}
                   replyCount={stats.byMemberReplies[m.id] || 0}
                   accent={g.theme.from}
@@ -1661,7 +1663,7 @@
       );
     }
 
-    function MemberCard({ member, active, mentionCount, replyCount, onClick, accent }) {
+    function MemberCard({ member, active, pendingCount, mentionCount, replyCount, onClick, accent }) {
       const isLead = member.group === 'head';
       return (
         <button
@@ -1694,9 +1696,24 @@
                 <span className="text-xs" style={{color:'var(--text-muted)'}}>{member.title}</span>
               </div>
             </div>
-            <div className="text-right flex-shrink-0">
+            <div className="text-right flex-shrink-0 flex flex-col items-end">
               <div className="font-display tabular-nums" style={{fontSize: '24px', lineHeight: 1, fontWeight: 300, color: active > 0 ? accent : 'var(--text-faint)'}}>{active}</div>
               <div className="text-[9px] tracking-[0.2em] uppercase font-eyebrow" style={{color:'var(--text-faint)'}}>to-do</div>
+              {pendingCount > 0 && (
+                <div className="inline-flex items-center gap-1 mt-2 px-1.5 py-0.5 rounded-sm tabular-nums"
+                     style={{
+                       background:'rgba(201,169,97,0.15)',
+                       color:'#a37800',
+                       border:'1px solid #d6c08a',
+                       fontSize:'10px',
+                       fontWeight: 500,
+                       letterSpacing:'0.02em',
+                     }}
+                     title={`${pendingCount}건의 작업이 아직 확인되지 않았습니다`}>
+                  <span style={{width:4, height:4, borderRadius:'50%', background:'#a37800'}}></span>
+                  확인 대기 {pendingCount}
+                </div>
+              )}
             </div>
           </div>
           <div className="pt-2.5 flex items-center justify-between gap-3" style={{borderTop:'1px solid var(--border)'}}>
