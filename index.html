@@ -80,6 +80,21 @@
     .comment-thread-divider { height: 1px; background: var(--border); margin: 12px 0; }
   </style>
 
+  <!-- Firebase (compat builds for in-browser <script> use) -->
+  <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
+  <script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyAVhGrbmltdl8VfSNbgzf0VlrRcLsjFjI0",
+      authDomain: "grc-bm.firebaseapp.com",
+      projectId: "grc-bm",
+      storageBucket: "grc-bm.firebasestorage.app",
+      messagingSenderId: "165223252820",
+      appId: "1:165223252820:web:59618b3d44fca68839bec1"
+    };
+    firebase.initializeApp(firebaseConfig);
+    window.db = firebase.firestore();
+  </script>
   <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
   <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
@@ -446,35 +461,44 @@
       const [pins, setPins] = useState({});
       const [mustSetPin, setMustSetPin] = useState(false);
 
+      // Firestore real-time sync: tasks
       useEffect(() => {
-        try {
-          const raw = localStorage.getItem(STORAGE_KEY);
-          if (raw) {
-            const parsed = JSON.parse(raw);
-            // Migrate: ensure comments[] + createdBy
-            const migrated = parsed.map(t => ({
-              ...t,
-              comments: t.comments || [],
-              createdBy: t.createdBy || 'lee_dh',
-              assigneeIds: t.assigneeIds || (t.assigneeId ? [t.assigneeId] : []),
-              status: STATUS_MIGRATE[t.status] || t.status || 'pending',
-            }));
-            setTasks(migrated);
-          }
-          const pRaw = localStorage.getItem(PINS_KEY);
-          const loadedPins = pRaw ? JSON.parse(pRaw) : {};
-          const filled = {};
-          MEMBERS.forEach(mm => { filled[mm.id] = loadedPins[mm.id] || '0000'; });
-          setPins(filled);
-          if (!pRaw) localStorage.setItem(PINS_KEY, JSON.stringify(filled));
-          const savedUser = localStorage.getItem(USER_KEY);
-          if (savedUser && MEMBERS.find(m => m.id === savedUser)) {
-            setCurrentUser(savedUser);
-            if (filled[savedUser] === '0000') setMustSetPin(true);
-          }
-        } catch (e) {}
-        setLoaded(true);
+        const unsub = window.db.collection('tasks').onSnapshot(snap => {
+          const arr = [];
+          snap.forEach(doc => arr.push({ ...doc.data(), id: doc.id }));
+          arr.sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
+          setTasks(arr);
+          setLoaded(true);
+        }, err => {
+          console.error('tasks onSnapshot error:', err);
+          setLoaded(true);
+        });
+        return () => unsub();
       }, []);
+
+      // Firestore real-time sync: pins
+      useEffect(() => {
+        const unsub = window.db.collection('pins').onSnapshot(snap => {
+          const map = {};
+          MEMBERS.forEach(m => { map[m.id] = '0000'; });
+          snap.forEach(doc => { map[doc.id] = doc.data().pin || '0000'; });
+          setPins(map);
+        }, err => console.error('pins onSnapshot error:', err));
+        return () => unsub();
+      }, []);
+
+      // Restore session id from localStorage (session only, data is shared)
+      useEffect(() => {
+        const savedUser = localStorage.getItem(USER_KEY);
+        if (savedUser && MEMBERS.find(m => m.id === savedUser)) {
+          setCurrentUser(savedUser);
+        }
+      }, []);
+
+      // After pins load, force PIN re-set if user is still on '0000'
+      useEffect(() => {
+        if (currentUser && pins[currentUser] === '0000') setMustSetPin(true);
+      }, [currentUser, pins]);
 
       const login = (id, pin) => {
         if (pins[id] !== pin) return false;
@@ -485,22 +509,21 @@
       };
       const logout = () => {
         setCurrentUser(null);
+        setMustSetPin(false);
         try { localStorage.removeItem(USER_KEY); } catch {}
       };
-      const setPin = (id, pin) => {
-        const next = { ...pins, [id]: pin };
-        setPins(next);
-        try { localStorage.setItem(PINS_KEY, JSON.stringify(next)); } catch {}
+      const setPin = async (id, pin) => {
+        try { await window.db.collection('pins').doc(id).set({ pin }); }
+        catch (e) { console.error('setPin failed', e); alert('비밀번호 저장 실패: ' + e.message); return; }
         if (id === currentUser && pin !== '0000') setMustSetPin(false);
       };
-      const resetPinAdmin = (id) => {
-        const next = { ...pins, [id]: '0000' };
-        setPins(next);
-        try { localStorage.setItem(PINS_KEY, JSON.stringify(next)); } catch {}
+      const resetPinAdmin = async (id) => {
+        try { await window.db.collection('pins').doc(id).set({ pin: '0000' }); }
+        catch (e) { console.error('resetPin failed', e); }
       };
       const resetPin = (id) => resetPinAdmin(id);
 
-      const addComment = (taskId, body) => {
+      const addComment = async (taskId, body) => {
         const t = tasks.find(x => x.id === taskId);
         if (!t) return;
         const c = {
@@ -509,24 +532,19 @@
           body: body,
           createdAt: new Date().toISOString(),
         };
-        updateTask(taskId, { comments: [...(t.comments || []), c] });
+        await updateTask(taskId, { comments: [...(t.comments || []), c] });
       };
 
-      const deleteComment = (taskId, commentId) => {
+      const deleteComment = async (taskId, commentId) => {
         const t = tasks.find(x => x.id === taskId);
         if (!t) return;
-        updateTask(taskId, { comments: (t.comments || []).filter(c => c.id !== commentId) });
+        await updateTask(taskId, { comments: (t.comments || []).filter(c => c.id !== commentId) });
       };
 
-      const persist = (next) => {
-        setTasks(next);
-        try { localStorage.setItem(STORAGE_KEY, JSON.stringify(next)); }
-        catch (e) { console.error(e); }
-      };
-
-      const addTask = (data) => {
+      const addTask = async (data) => {
+        const id = newId();
         const t = {
-          id: newId(),
+          id,
           brandId: data.brandId,
           title: data.title,
           description: data.description || '',
@@ -539,22 +557,30 @@
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
         };
-        persist([t, ...tasks]);
+        try { await window.db.collection('tasks').doc(id).set(t); }
+        catch (e) { console.error('addTask failed', e); alert('작업 등록 실패: ' + e.message); }
       };
-      const updateTask = (id, patch) =>
-        persist(tasks.map(t => t.id === id ? { ...t, ...patch, updatedAt: new Date().toISOString() } : t));
-      const deleteTask = (id) => persist(tasks.filter(t => t.id !== id));
-      // Remove current user from a shared task; if they're the only assignee (or not in
-      // assignees at all), delete the task outright.
-      const removeOrDelete = (id) => {
+      const updateTask = async (id, patch) => {
+        try {
+          await window.db.collection('tasks').doc(id).update({
+            ...patch,
+            updatedAt: new Date().toISOString(),
+          });
+        } catch (e) { console.error('updateTask failed', e); }
+      };
+      const deleteTask = async (id) => {
+        try { await window.db.collection('tasks').doc(id).delete(); }
+        catch (e) { console.error('deleteTask failed', e); }
+      };
+      const removeOrDelete = async (id) => {
         const t = tasks.find(x => x.id === id);
         if (!t) return;
         const ids = t.assigneeIds || (t.assigneeId ? [t.assigneeId] : []);
         const others = ids.filter(x => x !== currentUser);
         if (ids.includes(currentUser) && others.length > 0) {
-          updateTask(id, { assigneeIds: others });
+          await updateTask(id, { assigneeIds: others });
         } else {
-          deleteTask(id);
+          await deleteTask(id);
         }
       };
       const cycleStatus = (id) => {
