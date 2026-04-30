@@ -1264,12 +1264,19 @@
                 )}
               </div>
             )}
-            <div className="mt-3 flex items-center gap-3">
+            <div className="mt-3.5 flex items-center gap-3">
               <button onClick={() => setExpanded(e => !e)}
-                      className="text-xs transition flex items-center gap-1.5 px-2 py-0.5 rounded-sm"
-                      style={{color: expanded ? 'var(--ink)' : commentCount > 0 ? 'var(--ink-soft)' : 'var(--text-faint)',
-                              background: expanded ? 'var(--surface-2)' : 'transparent'}}>
-                💬 {commentCount > 0 ? '댓글 ' + commentCount : '댓글'}
+                      className="text-sm transition flex items-center gap-2 px-3 py-1.5 rounded-md"
+                      style={{
+                        color: expanded ? 'var(--ink)' : commentCount > 0 ? 'var(--ink)' : 'var(--text-muted)',
+                        background: expanded ? 'var(--surface-2)' : 'transparent',
+                        border: '1px solid ' + (expanded ? 'var(--border-strong)' : 'var(--border)'),
+                        fontWeight: commentCount > 0 ? 500 : 400,
+                      }}
+                      onMouseEnter={(e) => { if (!expanded) { e.currentTarget.style.background = 'var(--surface-2)'; e.currentTarget.style.borderColor = 'var(--border-strong)'; } }}
+                      onMouseLeave={(e) => { if (!expanded) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.borderColor = 'var(--border)'; } }}>
+                <span style={{fontSize:'15px'}}>💬</span>
+                {commentCount > 0 ? '댓글 ' + commentCount : '댓글'}
               </button>
             </div>
           </div>
