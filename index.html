@@ -1048,6 +1048,7 @@
     function BoardView({ posts, currentUser, onAdd, onUpdate, onDelete, onAddComment, onDeleteComment }) {
       const [title, setTitle] = useState('');
       const [body, setBody] = useState('');
+      const [filter, setFilter] = useState('all'); // 'all' | 'mentions'
       const me = memberById(currentUser);
       const submit = () => {
         if (!title.trim() && !body.trim()) return;
@@ -1056,6 +1057,23 @@
         setBody('');
       };
       const canSubmit = title.trim() || body.trim();
+
+      const isMentioned = (p) => {
+        if (extractMentionIds(p.body || '').includes(currentUser)) return true;
+        return (p.comments || []).some(c => extractMentionIds(c.body || '').includes(currentUser));
+      };
+      const mentionsCount = useMemo(() => {
+        let n = 0;
+        posts.forEach(p => {
+          if (extractMentionIds(p.body || '').includes(currentUser)) n++;
+          (p.comments || []).forEach(c => {
+            if (extractMentionIds(c.body || '').includes(currentUser)) n++;
+          });
+        });
+        return n;
+      }, [posts, currentUser]);
+      const visiblePosts = filter === 'all' ? posts : posts.filter(isMentioned);
+
       return (
         <div className="space-y-4">
           {/* Composer */}
@@ -1092,17 +1110,51 @@
               </button>
             </div>
           </div>
+          {/* Filter tabs */}
+          <div className="flex items-center gap-5 pb-3" style={{borderBottom:'1px solid var(--border)'}}>
+            <button onClick={() => setFilter('all')}
+                    className="text-sm tracking-wide transition flex items-baseline gap-1.5"
+                    style={{color: filter === 'all' ? 'var(--ink)' : 'var(--text-muted)',
+                            fontWeight: filter === 'all' ? 500 : 400}}>
+              전체 글 <span className="text-xs tabular-nums" style={{color:'var(--text-faint)'}}>{posts.length}</span>
+            </button>
+            <button onClick={() => setFilter('mentions')}
+                    className="text-sm tracking-wide transition flex items-baseline gap-1.5"
+                    style={{color: filter === 'mentions' ? 'var(--ink)' : 'var(--text-muted)',
+                            fontWeight: filter === 'mentions' ? 500 : 400}}>
+              내 @멘션
+              <span className="text-xs px-1.5 py-0.5 rounded-sm tabular-nums"
+                    style={{
+                      color: mentionsCount > 0 ? '#2563eb' : 'var(--text-faint)',
+                      background: mentionsCount > 0 ? 'rgba(37,99,235,0.1)' : 'transparent',
+                      fontWeight: 500
+                    }}>
+                {mentionsCount}
+              </span>
+            </button>
+          </div>
+
           {/* Posts */}
-          {posts.length === 0 ? (
+          {visiblePosts.length === 0 ? (
             <div className="text-center py-16 rounded-md" style={{background:'var(--surface)', border:'1px solid var(--border)'}}>
-              <p className="text-sm" style={{color:'var(--text-muted)'}}>아직 게시글이 없습니다</p>
-              <p className="text-xs mt-1" style={{color:'var(--text-faint)'}}>첫 번째 글을 작성해보세요</p>
+              {filter === 'mentions' ? (
+                <>
+                  <p className="text-sm" style={{color:'var(--text-muted)'}}>아직 멘션된 게시글이 없습니다</p>
+                  <p className="text-xs mt-1" style={{color:'var(--text-faint)'}}>다른 사람이 @{me?.name || '회원'}님을 언급하면 여기에 모입니다</p>
+                </>
+              ) : (
+                <>
+                  <p className="text-sm" style={{color:'var(--text-muted)'}}>아직 게시글이 없습니다</p>
+                  <p className="text-xs mt-1" style={{color:'var(--text-faint)'}}>첫 번째 글을 작성해보세요</p>
+                </>
+              )}
             </div>
           ) : (
             <ul className="space-y-3">
-              {posts.map(p => (
+              {visiblePosts.map(p => (
                 <PostCard key={p.id} post={p}
                   currentUser={currentUser}
+                  initiallyExpanded={filter === 'mentions'}
                   onUpdate={onUpdate}
                   onDelete={onDelete}
                   onAddComment={onAddComment}
@@ -1114,8 +1166,8 @@
       );
     }
 
-    function PostCard({ post, currentUser, onUpdate, onDelete, onAddComment, onDeleteComment }) {
-      const [expanded, setExpanded] = useState(false);
+    function PostCard({ post, currentUser, initiallyExpanded, onUpdate, onDelete, onAddComment, onDeleteComment }) {
+      const [expanded, setExpanded] = useState(!!initiallyExpanded);
       const [editing, setEditing] = useState(false);
       const [draftTitle, setDraftTitle] = useState(post.title || '');
       const [draftBody, setDraftBody] = useState(post.body || '');
@@ -1124,6 +1176,8 @@
       const canEdit = isMine || currentUser === 'lee_dh';
       const commentCount = (post.comments || []).length;
       const when = formatRelativeTime(post.createdAt);
+      const mentionedHere = extractMentionIds(post.body || '').includes(currentUser)
+        || (post.comments || []).some(c => extractMentionIds(c.body || '').includes(currentUser));
 
       const startEdit = () => {
         setDraftTitle(post.title || '');
@@ -1151,6 +1205,12 @@
                 <span className="text-[10px] tracking-wide" style={{color:'var(--text-faint)'}}>· {when}</span>
                 {post.updatedAt && post.updatedAt !== post.createdAt && (
                   <span className="text-[10px] tracking-wide" style={{color:'var(--text-faint)'}}>· 수정됨</span>
+                )}
+                {mentionedHere && (
+                  <span className="text-[10px] tracking-wide px-1.5 py-0.5 rounded-sm ml-1"
+                        style={{background:'rgba(37,99,235,0.1)', color:'#2563eb', fontWeight:500}}>
+                    @멘션
+                  </span>
                 )}
               </div>
               {canEdit && (
