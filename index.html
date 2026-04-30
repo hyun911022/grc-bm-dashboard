@@ -1976,11 +1976,11 @@
               </div>
             </div>
             <div className="flex items-center gap-2">
-              {(currentUser === 'lee_dh' || currentUser === 'park_hb') && memberId !== currentUser && (
+              {currentUser && memberId !== currentUser && (
                 <button onClick={() => onAssign(memberId)}
                         className="text-xs px-3.5 py-1.5 rounded-full transition tracking-wide flex items-center gap-1.5"
                         style={{background:'var(--ink)', color:'white'}}>
-                  <Plus size={11} strokeWidth={2.2} /> 작업 지시
+                  <Plus size={11} strokeWidth={2.2} /> 업무 요청
                 </button>
               )}
               <button onClick={onClose} className="transition" style={{color:'var(--text-muted)'}}
