@@ -851,8 +851,8 @@
       return (
         <header className="sticky top-0 z-30 backdrop-blur"
                 style={{background: headerBg, borderBottom: '1px solid ' + borderCol}}>
-          <div className="max-w-6xl mx-auto px-8 py-5 flex items-center justify-between gap-6">
-            <button onClick={reload} className="flex items-center gap-4 group cursor-pointer flex-shrink-0" title="처음으로">
+          <div className="max-w-6xl mx-auto px-4 sm:px-8 py-4 sm:py-5 flex items-center justify-between gap-3 sm:gap-6">
+            <button onClick={reload} className="flex items-center gap-2 sm:gap-4 group cursor-pointer flex-shrink-0" title="처음으로">
               <img src={LOGO_SRC} alt="Grace International"
                    style={{height:'22px', width:'auto'}}
                    className="opacity-95 group-hover:opacity-100" />
@@ -862,7 +862,7 @@
                 Brand Management
               </span>
             </button>
-            <div className="flex items-center gap-5">
+            <div className="flex items-center gap-2 sm:gap-5">
               <div className="flex items-center">
                 <TabBtn active={view === 'board'}   onClick={() => setView('board')}   label="게시판" sub="Board" />
                 <TabBtn active={view === 'members'} onClick={() => setView('members')} label="담당자" sub="People" />
@@ -904,13 +904,13 @@
         <>
           <div className="relative" onClick={(e) => e.stopPropagation()}>
             <button onClick={() => setOpen(o => !o)}
-                    className="flex items-center gap-2 text-xs px-2.5 py-1.5 rounded-full transition"
+                    className="flex items-center gap-1.5 sm:gap-2 text-xs px-2 sm:px-2.5 py-1.5 rounded-full transition flex-shrink-0 whitespace-nowrap"
                     style={{background:'rgba(255,255,255,0.08)', color:'rgba(255,255,255,0.85)', border:'1px solid rgba(255,255,255,0.12)'}}>
               {myEmoji
-                ? <span style={{fontSize:'13px', lineHeight:1}}>{myEmoji}</span>
+                ? <span style={{fontSize:'14px', lineHeight:1}}>{myEmoji}</span>
                 : <span className="w-1.5 h-1.5 rounded-full" style={{background:'#7a8c5e'}}></span>}
-              <span className="font-medium">{me?.name || '—'}</span>
-              <span style={{color:'rgba(255,255,255,0.55)'}}>{me?.title || ''}</span>
+              <span className="hidden sm:inline font-medium">{me?.name || '—'}</span>
+              <span className="hidden sm:inline" style={{color:'rgba(255,255,255,0.55)'}}>{me?.title || ''}</span>
               <ChevronDown size={11} strokeWidth={1.5} style={{opacity:0.6}} />
             </button>
             {open && (
@@ -1047,20 +1047,35 @@
       );
     }
 
-    const EMOJI_OPTIONS = [
-      // 얼굴
-      '😀','😄','😎','🤓','🥸','🤠','🥳','🤖','🥷','😇','🤔','🥰','😋','😌','🥲','🫠','🤡','👻','💀','👽','🎃','🥶','🥵','😴','🤯','🫡','🧐','🤨','😏','🙃','🤪','🤗','🫶','🤲','👋',
-      // 동물
-      '🦊','🐱','🐶','🐼','🦁','🐯','🐻','🦄','🐰','🐢','🦉','🦋','🐝','🦒','🐳','🐙','🐧','🦅','🦦','🦔','🦫','🐊','🐉','🦖','🦕','🐌','🐞','🦓','🦘','🦨','🐧','🦦','🦩','🦚','🦃','🐝','🦌','🐮','🐷','🐸','🐵','🐹','🐭','🐔','🦔','🦓','🐠','🐡','🐚','🐌',
-      // 자연
-      '🌸','🌻','🌿','🌵','🌙','⭐','✨','🌈','🌹','🌺','🌷','🌼','🍀','🌳','🌴','🌾','🌊','🌅','🍄','🌱','🌿','🌲','☀️','☁️','⚡','❄️','🔥','💧','🌍','🌎','🌏','🏔️','🌋','🪐',
-      // 음식·음료
-      '🔥','⚡','🚀','🎨','🎵','📚','⚽','☕','🍕','🍔','🍩','🍰','🍦','🍓','🍎','🍌','🍑','🥑','🌮','🍜','🍙','🍱','🍣','🍷','🍺','🍵','🍒','🍇','🥥','🍍','🥝','🍐','🥐','🥨','🥯','🧀','🍞','🥗','🍫','🍿','🍯',
-      // 활동·취미
-      '🏀','🏈','⚾','🎾','🏐','🎱','🎯','🎮','🎲','🎸','🎤','🎧','🎬','📷','🎷','🎻','🪄','🎯','🎳','🏆','🥇','🚴','🏊','🏂','🏄','✈️','🚗','🛸','🚀','⛵','🚲','🛹','🚂',
-      // 하트·기호·물건
-      '❤️','🧡','💛','💚','💙','💜','🤍','🖤','🤎','🩷','💖','💝','💘','💗','💓','💞','💕','💎','🏆','👑','🔑','🎁','🎀','🎉','🎊','🎈','💡','📌','📎','✏️','📝','💼','💰',
+    const EMOJI_GROUPS = [
+      { label: '얼굴·표정', items: [
+        '😀','😃','😄','😁','😆','😊','🙂','🙃','😉','😌','😍','🥰','😘','😋','😎','🥸','🤓','🧐','🤔','🤨','😐','😶','🙄','😏','😴','😪','🥱','🥲','🥹','😢','😭','🥺','😮‍💨','🤯','🥵','🥶','🤪','🤡','🥳','🤠','🤖','👻','💀','😈','👽','👾','🎃','🫠','🫡','🫢','🫣','🤐','🤫','🤥','😜','😝','😛','🤤','😇','🥱','🤧','🤒','🤕','🥴','😵','🤑'
+      ]},
+      { label: '제스처·사람', items: [
+        '👋','🤚','🖐️','✋','🖖','👌','🤌','🤏','✌️','🤞','🤟','🤘','🤙','👈','👉','👆','🖕','👇','☝️','👍','👎','👊','✊','🤛','🤜','👏','🙌','👐','🤲','🤝','🙏','✍️','💅','🤳','💪','🦾','🦿','🦵','🦶','👂','🦻','👃','🧠','🫀','🫁','🦷','🦴','👀','👁️','👅','👄','💋','🩸'
+      ]},
+      { label: '동물', items: [
+        '🐶','🐱','🐭','🐹','🐰','🦊','🐻','🐼','🐻‍❄️','🐨','🐯','🦁','🐮','🐷','🐽','🐸','🐵','🙈','🙉','🙊','🐒','🐔','🐧','🐦','🐤','🐣','🐥','🦆','🦅','🦉','🦇','🐺','🐗','🐴','🦄','🐝','🪱','🐛','🦋','🐌','🐞','🐜','🪰','🪲','🪳','🦟','🦗','🕷️','🕸️','🦂','🐢','🐍','🦎','🦖','🦕','🐙','🦑','🦐','🦞','🦀','🐡','🐠','🐟','🐬','🐳','🐋','🦈','🦭','🐊','🐅','🐆','🦓','🦍','🦧','🦣','🐘','🦛','🦏','🐪','🐫','🦒','🦘','🦬','🐃','🐂','🐄','🐎','🐖','🐏','🐑','🦙','🐐','🦌','🐕','🐩','🦮','🐈','🐓','🦃','🦤','🦚','🦜','🦢','🦩','🕊️','🐇','🦝','🦨','🦡','🦫','🦦','🦥','🐁','🐀','🐿️','🦔'
+      ]},
+      { label: '자연·식물', items: [
+        '🌸','💮','🌹','🥀','🌺','🌻','🌼','🌷','🌱','🪴','🌲','🌳','🌴','🌵','🌾','🌿','☘️','🍀','🍁','🍂','🍃','🪺','🪹','🍄','🌰','🌎','🌍','🌏','🌐','🗺️','🌋','🏔️','⛰️','🏕️','🏖️','🏜️','🏝️','🏞️','🌅','🌄','🌠','🎇','🎆','🌇','🌆','🏙️','🌃','🌌','🌉','🌁','☀️','🌤️','⛅','🌥️','☁️','🌦️','🌧️','⛈️','🌩️','🌨️','❄️','☃️','⛄','🌬️','💨','💧','💦','☔','🌊','🌫️','🌪️','🌬️','🌈','⭐','🌟','✨','⚡','☄️','💥','🔥','🌙','🌛','🌜','🌚','🌝','🌞','🪐','💫'
+      ]},
+      { label: '음식·음료', items: [
+        '🍏','🍎','🍐','🍊','🍋','🍌','🍉','🍇','🍓','🫐','🍈','🍒','🍑','🥭','🍍','🥥','🥝','🍅','🍆','🥑','🥦','🥬','🥒','🌶️','🫑','🌽','🥕','🫒','🧄','🧅','🥔','🍠','🥐','🥯','🍞','🥖','🥨','🧀','🥚','🍳','🧈','🥞','🧇','🥓','🥩','🍗','🍖','🌭','🍔','🍟','🍕','🥪','🥙','🧆','🌮','🌯','🫔','🥗','🥘','🫕','🥫','🍝','🍜','🍲','🍛','🍣','🍱','🥟','🦪','🍤','🍙','🍚','🍘','🍥','🥠','🥮','🍢','🍡','🍧','🍨','🍦','🥧','🧁','🍰','🎂','🍮','🍭','🍬','🍫','🍿','🍩','🍪','🌰','🥜','🍯','🥛','🍼','☕','🫖','🍵','🧃','🥤','🧋','🍶','🍺','🍻','🥂','🍷','🥃','🍸','🍹','🍾','🧊','🥄','🍴','🍽️','🥣','🥡','🥢','🧂'
+      ]},
+      { label: '활동·취미', items: [
+        '⚽','🏀','🏈','⚾','🥎','🎾','🏐','🏉','🥏','🎱','🪀','🏓','🏸','🏒','🏑','🥍','🏏','🪃','🥅','⛳','🪁','🏹','🎣','🤿','🥊','🥋','🎽','🛹','🛼','🛷','⛸️','🥌','🎿','⛷️','🏂','🪂','🏋️','🤼','🤸','⛹️','🤺','🤾','🏌️','🏇','🧘','🏄','🏊','🤽','🚣','🧗','🚵','🚴','🏆','🥇','🥈','🥉','🏅','🎖️','🏵️','🎗️','🎫','🎟️','🎪','🤹','🎭','🩰','🎨','🎬','🎤','🎧','🎼','🎹','🥁','🪘','🎷','🎺','🪗','🎸','🪕','🎻','🪈','🎲','♟️','🎯','🎳','🎮','🕹️','🎰','🧩'
+      ]},
+      { label: '여행·이동', items: [
+        '🚗','🚕','🚙','🚌','🚎','🏎️','🚓','🚑','🚒','🚐','🛻','🚚','🚛','🚜','🦯','🦽','🦼','🛴','🚲','🛵','🏍️','🛺','🚨','🚔','🚍','🚘','🚖','🚡','🚠','🚟','🚃','🚋','🚞','🚝','🚄','🚅','🚈','🚂','🚆','🚇','🚊','🚉','✈️','🛫','🛬','🛩️','💺','🛰️','🚀','🛸','🚁','🛶','⛵','🚤','🛥️','🛳️','⛴️','🚢','⚓','🪝','⛽','🚧','🚦','🚥','🗺️','🗿','🗽','🗼','🏰','🏯','🏟️','🎡','🎢','🎠','⛲','⛱️','🏖️','🏝️','🏜️'
+      ]},
+      { label: '하트·기호·물건', items: [
+        '❤️','🧡','💛','💚','💙','💜','🖤','🤍','🤎','🩶','🩵','🩷','💔','❣️','💕','💞','💓','💗','💖','💘','💝','💟','☮️','✝️','☪️','🕉️','☸️','✡️','🔯','🕎','☯️','☦️','🛐','⛎','♈','♉','♊','♋','♌','♍','♎','♏','♐','♑','♒','♓','🆔','⚛️','🉑','☢️','☣️','📴','📳','🈶','🈚','🈸','🈺','🈷️','✴️','🆚','💮','🉐','㊙️','㊗️','🈴','🈵','🈹','🈲','🅰️','🅱️','🆎','🆑','🅾️','🆘','❌','⭕','🛑','⛔','📛','🚫','💯','💢','♨️','🚷','🚯','🚳','🚱','🔞','📵','🚭','❗','❕','❓','❔','‼️','⁉️','🔅','🔆','〽️','⚠️','🚸','🔱','⚜️','🔰','♻️','✅','🈯','💹','❇️','✳️','❎','🌐','💠','Ⓜ️','🌀','💤','🏧','🚾','♿','🅿️','🛗','🈳','🈂️','🛂','🛃','🛄','🛅','🚹','🚺','🚼','⚧','🚻','🚮','🎦','📶','🈁','🔣','ℹ️','🔤','🔡','🔠','🆖','🆗','🆙','🆒','🆕','🆓','0️⃣','1️⃣','2️⃣','3️⃣','4️⃣','5️⃣','6️⃣','7️⃣','8️⃣','9️⃣','🔟','🔢','#️⃣','*️⃣','⏏️','▶️','⏸️','⏯️','⏹️','⏺️','⏭️','⏮️','⏩','⏪','⏫','⏬','◀️','🔼','🔽','➡️','⬅️','⬆️','⬇️','↗️','↘️','↙️','↖️','↕️','↔️','↪️','↩️','⤴️','⤵️','🔀','🔁','🔂','🔄','🔃','🎵','🎶','➕','➖','➗','✖️','🟰','♾️','💲','💱','™️','©️','®️','👁️‍🗨️','🔚','🔙','🔛','🔝','🔜','〰️','➰','➿','✔️','☑️','🔘','🔴','🟠','🟡','🟢','🔵','🟣','⚫','⚪','🟤','🔺','🔻','🔸','🔹','🔶','🔷','🔳','🔲','▪️','▫️','◾','◽','◼️','◻️','🟥','🟧','🟨','🟩','🟦','🟪','⬛','⬜','🟫','🔈','🔇','🔉','🔊','🔔','🔕','📣','📢','💬','💭','🗯️','♠️','♣️','♥️','♦️','🃏','🎴','🀄','🕐','🕑','🕒','🕓','🕔','🕕','🕖','🕗','🕘','🕙','🕚','🕛'
+      ]},
     ];
+
+    // Flat list for backward compatibility with anywhere else that uses EMOJI_OPTIONS
+    const EMOJI_OPTIONS = [...new Set(EMOJI_GROUPS.flatMap(g => g.items))];
 
     function EmojiPickerModal({ currentEmoji, onSave, onClose }) {
       const [picked, setPicked] = useState(currentEmoji || '');
@@ -1079,18 +1094,29 @@
             <p className="text-sm mb-5" style={{color:'var(--text-muted)'}}>
               게시글·댓글에 표시될 본인의 아바타입니다. 마음에 드는 하나를 골라주세요.
             </p>
-            <div className="grid gap-2 mb-5" style={{gridTemplateColumns: 'repeat(8, minmax(0, 1fr))'}}>
-              {EMOJI_OPTIONS.map(e => (
-                <button key={e} type="button" onClick={() => setPicked(e)}
-                        className="aspect-square rounded-md flex items-center justify-center transition"
-                        style={{
-                          background: picked === e ? 'var(--surface-2)' : 'var(--surface)',
-                          border: '1px solid ' + (picked === e ? 'var(--ink)' : 'var(--border)'),
-                          fontSize: '22px', lineHeight: 1,
-                          transform: picked === e ? 'scale(1.05)' : 'scale(1)',
-                        }}>
-                  {e}
-                </button>
+            <div className="space-y-5 mb-5" style={{maxHeight:'52vh', overflowY:'auto', paddingRight:'4px'}}>
+              {EMOJI_GROUPS.map(group => (
+                <div key={group.label}>
+                  <div className="text-[10px] tracking-[0.2em] uppercase font-eyebrow mb-2"
+                       style={{color:'var(--text-faint)'}}>
+                    {group.label}
+                  </div>
+                  <div className="grid gap-1" style={{gridTemplateColumns: 'repeat(10, minmax(0, 1fr))'}}>
+                    {group.items.map((e, i) => (
+                      <button key={group.label + '-' + i} type="button" onClick={() => setPicked(e)}
+                              className="aspect-square rounded-md flex items-center justify-center transition"
+                              style={{
+                                background: picked === e ? 'var(--surface-2)' : 'transparent',
+                                outline: picked === e ? '2px solid var(--ink)' : 'none',
+                                fontSize: '22px', lineHeight: 1,
+                              }}
+                              onMouseEnter={(ev) => { if (picked !== e) ev.currentTarget.style.background = 'var(--surface-2)'; }}
+                              onMouseLeave={(ev) => { if (picked !== e) ev.currentTarget.style.background = 'transparent'; }}>
+                        {e}
+                      </button>
+                    ))}
+                  </div>
+                </div>
               ))}
             </div>
             <div className="flex items-center justify-between pt-4" style={{borderTop:'1px solid var(--border)'}}>
@@ -1123,13 +1149,13 @@
 
     function TabBtn({ active, onClick, label, sub, last }) {
       return (
-        <button onClick={onClick} className={`px-1 py-2 transition group relative ${last ? '' : 'mr-7'}`}>
+        <button onClick={onClick} className={`px-1 py-2 transition group relative whitespace-nowrap flex-shrink-0 ${last ? '' : 'mr-3 sm:mr-7'}`}>
           <div className="flex items-baseline gap-2">
             <span className={`text-sm tracking-wider transition ${active ? '' : 'group-hover:opacity-70'}`}
                   style={{color: active ? 'white' : 'rgba(255,255,255,0.62)', fontWeight: active ? 500 : 400}}>
               {label}
             </span>
-            <span className="text-xs tracking-[0.25em] uppercase font-eyebrow" style={{color: 'rgba(255,255,255,0.45)'}}>
+            <span className="hidden sm:inline text-xs tracking-[0.25em] uppercase font-eyebrow" style={{color: 'rgba(255,255,255,0.45)'}}>
               {sub}
             </span>
           </div>
