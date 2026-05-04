@@ -657,7 +657,7 @@
           endTime: data.endTime || '',
           title: data.title || '',
           description: data.description || '',
-          color: data.color || 'blue',
+          category: data.category || 'etc',
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
         };
@@ -1563,15 +1563,24 @@
       return a && b && a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
     }
 
-    const EVENT_COLORS = {
-      blue:   { name: '블루',   bg: '#3b82f6', soft: 'rgba(59,130,246,0.12)',   text: '#1d4ed8' },
-      teal:   { name: '틸',     bg: '#0d9488', soft: 'rgba(13,148,136,0.12)',   text: '#0f766e' },
-      violet: { name: '바이올렛', bg: '#7c3aed', soft: 'rgba(124,58,237,0.12)', text: '#6d28d9' },
-      amber:  { name: '앰버',   bg: '#d97706', soft: 'rgba(217,119,6,0.12)',    text: '#b45309' },
-      rose:   { name: '로즈',   bg: '#e11d48', soft: 'rgba(225,29,72,0.12)',    text: '#be123c' },
-      slate:  { name: '슬레이트', bg: '#475569', soft: 'rgba(71,85,105,0.12)',  text: '#334155' },
+    // Calendar event categories (label + color, fixed pairing)
+    const EVENT_CATEGORIES = {
+      annual:    { label: '연차',    bg: '#eab308', soft: 'rgba(234,179,8,0.15)',  text: '#854d0e' },  // 노랑
+      biztrip:   { label: '출장',    bg: '#16a34a', soft: 'rgba(22,163,74,0.15)',  text: '#15803d' },  // 초록
+      hqvisit:   { label: '본사내방', bg: '#2563eb', soft: 'rgba(37,99,235,0.15)', text: '#1d4ed8' },  // 파랑
+      meeting:   { label: '미팅',    bg: '#7c3aed', soft: 'rgba(124,58,237,0.15)', text: '#6d28d9' },  // 바이올렛
+      etc:       { label: '기타',    bg: '#475569', soft: 'rgba(71,85,105,0.15)',  text: '#334155' },  // 슬레이트
     };
-    const COLOR_KEYS = Object.keys(EVENT_COLORS);
+    const CATEGORY_KEYS = Object.keys(EVENT_CATEGORIES);
+    // Migrate legacy color keys to category keys
+    const LEGACY_COLOR_TO_CATEGORY = {
+      blue: 'hqvisit', teal: 'biztrip', violet: 'meeting',
+      amber: 'annual', rose: 'etc',     slate: 'etc',
+    };
+    function getCategory(ev) {
+      const key = ev.category || LEGACY_COLOR_TO_CATEGORY[ev.color] || 'etc';
+      return { key, ...EVENT_CATEGORIES[key] };
+    }
 
     const KO_MONTHS = ['1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월'];
     const KO_WEEKDAYS = ['일','월','화','수','목','금','토'];
@@ -1597,7 +1606,72 @@
         return cells;
       }, [cursor]);
 
-      // Bucket events by date string
+      // Per-week event spans for grid drawing.
+      // For each of 6 weeks, we compute "spans" — multi-day events laid out across columns —
+      // and "singles" — single-day timed events shown as a dot+title row.
+      const MAX_ROWS_PER_DAY = 3;
+      const weekLayouts = useMemo(() => {
+        const weeks = [];
+        for (let w = 0; w < 6; w++) {
+          const weekStart = grid[w * 7];                // Sunday
+          const weekEnd = grid[w * 7 + 6];              // Saturday
+          // Find every event that overlaps this week
+          const overlapping = events.filter(ev => {
+            const s = parseYMD(ev.date);
+            const e = parseYMD(ev.endDate || ev.date) || s;
+            if (!s) return false;
+            return e >= weekStart && s <= weekEnd;
+          });
+          // For multi-day events: expand to a span object
+          const spans = [];
+          const singles = {}; // dayIdx -> [ev,...]
+          overlapping.forEach(ev => {
+            const s = parseYMD(ev.date);
+            const e = parseYMD(ev.endDate || ev.date) || s;
+            const isMulti = !isSameDay(s, e);
+            const isAllDay = ev.allDay;
+            // Treat any multi-day event as a span; treat single-day all-day events also as spans
+            if (isMulti || isAllDay) {
+              const startCol = Math.max(0, Math.floor((s - weekStart) / 86400000));
+              const endCol = Math.min(6, Math.floor((e - weekStart) / 86400000));
+              spans.push({
+                ev,
+                startCol,
+                endCol,
+                continuesLeft: s < weekStart,
+                continuesRight: e > weekEnd,
+              });
+            } else {
+              const dayIdx = Math.floor((s - weekStart) / 86400000);
+              if (dayIdx < 0 || dayIdx > 6) return;
+              (singles[dayIdx] = singles[dayIdx] || []).push(ev);
+            }
+          });
+          // Sort singles by start time
+          Object.values(singles).forEach(list => list.sort((a, b) => (a.startTime || '').localeCompare(b.startTime || '')));
+          // Place spans into rows greedily (each row is one horizontal track)
+          spans.sort((a, b) => {
+            // longer spans first, then earlier start
+            const lenA = a.endCol - a.startCol;
+            const lenB = b.endCol - b.startCol;
+            if (lenA !== lenB) return lenB - lenA;
+            return a.startCol - b.startCol;
+          });
+          const rows = []; // rows[i] = array of {startCol,endCol,...}
+          spans.forEach(sp => {
+            for (let i = 0; i < rows.length; i++) {
+              const fits = rows[i].every(existing => existing.endCol < sp.startCol || existing.startCol > sp.endCol);
+              if (fits) { rows[i].push(sp); sp.row = i; return; }
+            }
+            sp.row = rows.length;
+            rows.push([sp]);
+          });
+          weeks.push({ weekStart, weekEnd, spans, singles, rowCount: rows.length });
+        }
+        return weeks;
+      }, [grid, events]);
+
+      // Helper for per-day click detail (used by selected day list)
       const eventsByDate = useMemo(() => {
         const map = {};
         events.forEach(ev => {
@@ -1611,7 +1685,6 @@
             d = addDays(d, 1);
           }
         });
-        // Sort each day: all-day first, then by startTime
         Object.values(map).forEach(list => list.sort((a, b) => {
           if (a.allDay !== b.allDay) return a.allDay ? -1 : 1;
           return (a.startTime || '').localeCompare(b.startTime || '');
@@ -1695,90 +1768,140 @@
             ))}
           </div>
 
-          {/* Calendar grid */}
-          <div className="grid grid-cols-7" style={{borderTop:'1px solid var(--border)'}}>
-            {grid.map((d, i) => {
-              const inMonth = d.getMonth() === cursor.getMonth();
-              const isToday = isSameDay(d, today);
-              const isSelected = isSameDay(d, selectedDate);
-              const isWeekend = d.getDay() === 0 || d.getDay() === 6;
-              const isSunday = d.getDay() === 0;
-              const dayEvents = eventsByDate[ymd(d)] || [];
-              const visible = dayEvents.slice(0, 3);
-              const more = Math.max(0, dayEvents.length - visible.length);
-              const isLastRow = i >= 35;
-              const isLastCol = (i + 1) % 7 === 0;
+          {/* Calendar grid: 6 weeks, each as a row with absolute-positioned spans */}
+          <div style={{borderTop:'1px solid var(--border)'}}>
+            {weekLayouts.map((wk, wIdx) => {
+              const isLastWeek = wIdx === 5;
+              const SPAN_BAND_TOP = 24;     // px from top of cell to start span band
+              const SPAN_HEIGHT = 18;       // px per span row
+              const SPAN_GAP = 2;
+              const visibleSpanRows = Math.min(wk.rowCount, MAX_ROWS_PER_DAY);
+              const cellMinHeight = SPAN_BAND_TOP + (visibleSpanRows + 2) * (SPAN_HEIGHT + SPAN_GAP) + 4;
               return (
-                <button
-                  key={i}
-                  onClick={() => setSelectedDate(d)}
-                  onDoubleClick={() => openCreate(ymd(d))}
-                  className="text-left transition relative"
-                  style={{
-                    minHeight: '108px',
-                    padding: '6px 6px 4px 6px',
-                    borderRight: isLastCol ? 'none' : '1px solid var(--border)',
-                    borderBottom: isLastRow ? 'none' : '1px solid var(--border)',
-                    background: isSelected
-                      ? 'rgba(28,37,64,0.04)'
-                      : (inMonth ? 'transparent' : 'var(--surface-2)'),
-                    opacity: inMonth ? 1 : 0.55,
-                    cursor: 'pointer',
-                  }}
-                  onMouseEnter={(e) => { if (!isSelected) e.currentTarget.style.background = 'var(--surface-2)'; }}
-                  onMouseLeave={(e) => { if (!isSelected) e.currentTarget.style.background = inMonth ? 'transparent' : 'var(--surface-2)'; }}
-                >
-                  <div className="flex items-center justify-between mb-1">
-                    {isToday ? (
-                      <span className="inline-flex items-center justify-center rounded-full tabular-nums"
-                            style={{width:'22px', height:'22px', background:'var(--ink)', color:'white', fontSize:'12px', fontWeight:600}}>
-                        {d.getDate()}
-                      </span>
-                    ) : (
-                      <span className="tabular-nums" style={{
-                        fontSize: '13px',
-                        fontWeight: isSelected ? 600 : 500,
-                        color: !inMonth ? 'var(--text-faint)' : isSunday ? '#dc2626' : isWeekend ? '#2563eb' : 'var(--ink)',
-                        marginLeft: '2px',
-                      }}>
-                        {d.getDate()}
-                      </span>
-                    )}
-                  </div>
-                  <div className="space-y-[2px]">
-                    {visible.map(ev => {
-                      const c = EVENT_COLORS[ev.color] || EVENT_COLORS.blue;
-                      return (
-                        <div key={ev.id}
-                             onClick={(e) => { e.stopPropagation(); setEditingEvent(ev); }}
-                             className="rounded-sm truncate cursor-pointer transition hover:opacity-100"
-                             style={{
-                               background: ev.allDay ? c.bg : 'transparent',
-                               color: ev.allDay ? 'white' : c.text,
-                               fontSize: '11px',
-                               lineHeight: 1.35,
-                               padding: ev.allDay ? '2px 5px' : '1px 4px 1px 6px',
-                               fontWeight: 500,
-                               position: 'relative',
-                             }}>
-                          {!ev.allDay && (
-                            <span style={{position:'absolute', left:'2px', top:'50%', transform:'translateY(-50%)',
-                                          width:'4px', height:'4px', background:c.bg, borderRadius:'50%'}}></span>
+                <div key={wIdx} className="grid grid-cols-7 relative"
+                     style={{
+                       borderBottom: isLastWeek ? 'none' : '1px solid var(--border)',
+                       minHeight: Math.max(108, cellMinHeight) + 'px',
+                     }}>
+                  {/* Day cells (background + date number + singles + overflow count) */}
+                  {[0,1,2,3,4,5,6].map(col => {
+                    const i = wIdx * 7 + col;
+                    const d = grid[i];
+                    const inMonth = d.getMonth() === cursor.getMonth();
+                    const isToday = isSameDay(d, today);
+                    const isSelected = isSameDay(d, selectedDate);
+                    const isWeekend = d.getDay() === 0 || d.getDay() === 6;
+                    const isSunday = d.getDay() === 0;
+                    const isLastCol = col === 6;
+                    const totalForDay = (eventsByDate[ymd(d)] || []).length;
+                    const spansAtThisDay = wk.spans.filter(s => s.startCol <= col && s.endCol >= col).length;
+                    const singlesHere = wk.singles[col] || [];
+                    const remainingRowsForSingles = Math.max(0, MAX_ROWS_PER_DAY - Math.min(wk.rowCount, MAX_ROWS_PER_DAY));
+                    const visibleSingles = singlesHere.slice(0, remainingRowsForSingles);
+                    const hiddenCount = totalForDay - (Math.min(spansAtThisDay, MAX_ROWS_PER_DAY)) - visibleSingles.length;
+                    return (
+                      <div key={col}
+                           onClick={() => setSelectedDate(d)}
+                           onDoubleClick={() => openCreate(ymd(d))}
+                           className="text-left relative cursor-pointer transition"
+                           style={{
+                             padding: '6px 6px 4px 6px',
+                             borderRight: isLastCol ? 'none' : '1px solid var(--border)',
+                             background: isSelected
+                               ? 'rgba(28,37,64,0.04)'
+                               : (inMonth ? 'transparent' : 'var(--surface-2)'),
+                             opacity: inMonth ? 1 : 0.55,
+                           }}
+                           onMouseEnter={(e) => { if (!isSelected) e.currentTarget.style.background = 'var(--surface-2)'; }}
+                           onMouseLeave={(e) => { if (!isSelected) e.currentTarget.style.background = inMonth ? 'transparent' : 'var(--surface-2)'; }}>
+                        <div className="flex items-center justify-between" style={{height:'18px'}}>
+                          {isToday ? (
+                            <span className="inline-flex items-center justify-center rounded-full tabular-nums"
+                                  style={{width:'22px', height:'22px', background:'var(--ink)', color:'white', fontSize:'12px', fontWeight:600}}>
+                              {d.getDate()}
+                            </span>
+                          ) : (
+                            <span className="tabular-nums" style={{
+                              fontSize: '13px',
+                              fontWeight: isSelected ? 600 : 500,
+                              color: !inMonth ? 'var(--text-faint)' : isSunday ? '#dc2626' : isWeekend ? '#2563eb' : 'var(--ink)',
+                              marginLeft: '2px',
+                            }}>
+                              {d.getDate()}
+                            </span>
                           )}
-                          {!ev.allDay && ev.startTime && (
-                            <span className="tabular-nums mr-1" style={{opacity:0.85}}>{ev.startTime}</span>
-                          )}
-                          {ev.title || '(제목 없음)'}
                         </div>
-                      );
-                    })}
-                    {more > 0 && (
-                      <div style={{fontSize:'10px', color:'var(--text-muted)', padding:'1px 4px', fontWeight:500}}>
-                        + {more}건 더보기
+                        {/* Spacer for span band */}
+                        <div style={{
+                          height: (Math.min(wk.rowCount, MAX_ROWS_PER_DAY) * (SPAN_HEIGHT + SPAN_GAP)) + 'px',
+                        }}></div>
+                        {/* Single-day timed events (dot + time + title) */}
+                        <div className="space-y-[2px]">
+                          {visibleSingles.map(ev => {
+                            const c = getCategory(ev);
+                            return (
+                              <div key={ev.id}
+                                   onClick={(e) => { e.stopPropagation(); setEditingEvent(ev); }}
+                                   className="truncate cursor-pointer transition"
+                                   style={{
+                                     color: c.text,
+                                     fontSize: '11px',
+                                     lineHeight: 1.35,
+                                     padding: '1px 4px 1px 8px',
+                                     fontWeight: 500,
+                                     position: 'relative',
+                                   }}>
+                                <span style={{position:'absolute', left:'2px', top:'50%', transform:'translateY(-50%)',
+                                              width:'4px', height:'4px', background:c.bg, borderRadius:'50%'}}></span>
+                                {ev.startTime && <span className="tabular-nums mr-1" style={{opacity:0.85}}>{ev.startTime}</span>}
+                                {ev.title || '(제목 없음)'}
+                              </div>
+                            );
+                          })}
+                          {hiddenCount > 0 && (
+                            <div style={{fontSize:'10px', color:'var(--text-muted)', padding:'1px 4px', fontWeight:500}}>
+                              + {hiddenCount}건 더보기
+                            </div>
+                          )}
+                        </div>
                       </div>
-                    )}
-                  </div>
-                </button>
+                    );
+                  })}
+                  {/* Multi-day & all-day spans overlaid across columns */}
+                  {wk.spans.filter(sp => sp.row < MAX_ROWS_PER_DAY).map((sp, idx) => {
+                    const c = getCategory(sp.ev);
+                    const colWidth = 100 / 7;
+                    const left = sp.startCol * colWidth;
+                    const width = (sp.endCol - sp.startCol + 1) * colWidth;
+                    const top = SPAN_BAND_TOP + sp.row * (SPAN_HEIGHT + SPAN_GAP);
+                    const radiusLeft = sp.continuesLeft ? '0' : '3px';
+                    const radiusRight = sp.continuesRight ? '0' : '3px';
+                    return (
+                      <div key={sp.ev.id + '-' + idx}
+                           onClick={(e) => { e.stopPropagation(); setEditingEvent(sp.ev); }}
+                           className="absolute truncate cursor-pointer transition"
+                           style={{
+                             left: 'calc(' + left + '% + 3px)',
+                             width: 'calc(' + width + '% - 6px)',
+                             top: top + 'px',
+                             height: SPAN_HEIGHT + 'px',
+                             background: c.bg,
+                             color: 'white',
+                             fontSize: '11px',
+                             lineHeight: SPAN_HEIGHT + 'px',
+                             padding: '0 8px',
+                             fontWeight: 500,
+                             borderRadius: radiusLeft + ' ' + radiusRight + ' ' + radiusRight + ' ' + radiusLeft,
+                             zIndex: 1,
+                           }}>
+                        {sp.continuesLeft && '‹ '}
+                        <span style={{opacity:0.9, marginRight:'4px'}}>{c.label}</span>
+                        {sp.ev.title || '(제목 없음)'}
+                        {sp.continuesRight && ' ›'}
+                      </div>
+                    );
+                  })}
+                </div>
               );
             })}
           </div>
@@ -1809,7 +1932,7 @@
             ) : (
               <ul className="space-y-1.5">
                 {selectedEvents.map(ev => {
-                  const c = EVENT_COLORS[ev.color] || EVENT_COLORS.blue;
+                  const c = getCategory(ev);
                   const author = memberById(ev.authorId);
                   return (
                     <li key={ev.id}
@@ -1821,12 +1944,13 @@
                       <div style={{width:'3px', alignSelf:'stretch', background:c.bg, borderRadius:'2px'}}></div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-baseline gap-2 flex-wrap">
+                          <span className="text-[10px] tracking-wide px-1.5 py-0.5 rounded-sm"
+                                style={{background:c.soft, color:c.text, fontWeight:600}}>
+                            {c.label}
+                          </span>
                           <span className="text-sm" style={{color:'var(--ink)', fontWeight:600}}>{ev.title || '(제목 없음)'}</span>
                           {ev.allDay ? (
-                            <span className="text-[10px] tracking-wide px-1.5 py-0.5 rounded-sm"
-                                  style={{background:c.soft, color:c.text, fontWeight:500}}>
-                              종일
-                            </span>
+                            <span className="text-[10px] tracking-wide" style={{color:'var(--text-muted)'}}>종일</span>
                           ) : ev.startTime && (
                             <span className="text-xs tabular-nums" style={{color:'var(--text-muted)'}}>
                               {ev.startTime}{ev.endTime ? ' – ' + ev.endTime : ''}
@@ -1872,7 +1996,7 @@
       const [endDate, setEndDate] = useState(event?.endDate || event?.date || defaultDate || ymd(todayKSTDate()));
       const [startTime, setStartTime] = useState(event?.startTime || '09:00');
       const [endTime, setEndTime] = useState(event?.endTime || '10:00');
-      const [color, setColor] = useState(event?.color || 'blue');
+      const [category, setCategory] = useState(event?.category || (event?.color ? (LEGACY_COLOR_TO_CATEGORY[event.color] || 'etc') : 'annual'));
       const [description, setDescription] = useState(event?.description || '');
 
       const canEdit = !isEdit || event.authorId === currentUser || currentUser === 'lee_dh';
@@ -1887,7 +2011,7 @@
           endDate: allDay ? endDate : date,
           startTime: allDay ? '' : startTime,
           endTime: allDay ? '' : endTime,
-          color,
+          category,
           description: description.trim(),
         };
         onSave(data);
@@ -1990,20 +2114,29 @@
             )}
 
             <div>
-              <label className="text-[10px] tracking-[0.2em] uppercase font-eyebrow mb-2 block" style={{color:'var(--text-faint)'}}>색상</label>
-              <div className="flex items-center gap-2">
-                {COLOR_KEYS.map(k => (
-                  <button key={k} onClick={() => setColor(k)} disabled={!canEdit}
-                          className="rounded-full transition flex items-center justify-center"
-                          style={{
-                            width: '28px', height: '28px',
-                            background: EVENT_COLORS[k].bg,
-                            border: '2px solid ' + (color === k ? 'var(--ink)' : 'transparent'),
-                            outline: color === k ? '1px solid white' : 'none',
-                            outlineOffset: '-3px',
-                          }}
-                          title={EVENT_COLORS[k].name} />
-                ))}
+              <label className="text-[10px] tracking-[0.2em] uppercase font-eyebrow mb-2 block" style={{color:'var(--text-faint)'}}>일정 종류</label>
+              <div className="flex items-center gap-2 flex-wrap">
+                {CATEGORY_KEYS.map(k => {
+                  const cat = EVENT_CATEGORIES[k];
+                  const active = category === k;
+                  return (
+                    <button key={k} onClick={() => setCategory(k)} disabled={!canEdit}
+                            className="text-xs px-3 py-1.5 rounded-full transition tracking-wide flex items-center gap-1.5"
+                            style={{
+                              background: active ? cat.bg : cat.soft,
+                              color: active ? 'white' : cat.text,
+                              border: '1px solid ' + (active ? cat.bg : 'transparent'),
+                              fontWeight: active ? 600 : 500,
+                            }}>
+                      <span style={{
+                        width: '8px', height: '8px', borderRadius: '50%',
+                        background: active ? 'rgba(255,255,255,0.9)' : cat.bg,
+                        flexShrink: 0,
+                      }}></span>
+                      {cat.label}
+                    </button>
+                  );
+                })}
               </div>
             </div>
 
