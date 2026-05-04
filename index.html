@@ -119,6 +119,7 @@
       Clock: <><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></>,
       AlertCircle: <><circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/></>,
       ChevronRight: <><polyline points="9 18 15 12 9 6"/></>,
+      ChevronLeft: <><polyline points="15 18 9 12 15 6"/></>,
       ChevronDown:  <><polyline points="6 9 12 15 18 9"/></>,
       Briefcase: <><rect width="20" height="14" x="2" y="7" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></>,
       Users: <><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></>,
@@ -148,6 +149,7 @@
     const ClockI       = (p) => <Icon name="Clock" {...p} />;
     const AlertCircleI = (p) => <Icon name="AlertCircle" {...p} />;
     const ChevronRight = (p) => <Icon name="ChevronRight" {...p} />;
+    const ChevronLeft  = (p) => <Icon name="ChevronLeft" {...p} />;
     const ChevronDown  = (p) => <Icon name="ChevronDown" {...p} />;
     const BriefcaseI   = (p) => <Icon name="Briefcase" {...p} />;
     const UsersI       = (p) => <Icon name="Users" {...p} />;
@@ -478,6 +480,7 @@
       const [view, setView] = useState('board');
       const [tasks, setTasks] = useState([]);
       const [posts, setPosts] = useState([]);
+      const [events, setEvents] = useState([]);
       const [loaded, setLoaded] = useState(false);
       const [openBrand, setOpenBrand] = useState(null);
       const [openMember, setOpenMember] = useState(null);
@@ -528,6 +531,17 @@
           arr.sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
           setPosts(arr);
         }, err => console.error('posts onSnapshot error:', err));
+        return () => unsub();
+      }, []);
+
+      // Firestore real-time sync: events (calendar)
+      useEffect(() => {
+        const unsub = window.db.collection('events').onSnapshot(snap => {
+          const arr = [];
+          snap.forEach(doc => arr.push({ ...doc.data(), id: doc.id }));
+          arr.sort((a, b) => (a.date || '').localeCompare(b.date || '') || (a.startTime || '').localeCompare(b.startTime || ''));
+          setEvents(arr);
+        }, err => console.error('events onSnapshot error:', err));
         return () => unsub();
       }, []);
 
@@ -628,6 +642,38 @@
         const p = posts.find(x => x.id === postId);
         if (!p) return;
         await updatePost(postId, { comments: (p.comments || []).filter(c => c.id !== commentId) });
+      };
+
+      // Calendar events CRUD
+      const addEvent = async (data) => {
+        const id = 'ev_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
+        const ev = {
+          id,
+          authorId: currentUser,
+          date: data.date,                 // YYYY-MM-DD (KST)
+          endDate: data.endDate || data.date,
+          allDay: !!data.allDay,
+          startTime: data.startTime || '', // HH:MM
+          endTime: data.endTime || '',
+          title: data.title || '',
+          description: data.description || '',
+          color: data.color || 'blue',
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        };
+        try { await window.db.collection('events').doc(id).set(ev); }
+        catch (e) { console.error('addEvent failed', e); alert('일정 등록 실패: ' + e.message); }
+      };
+      const updateEvent = async (id, patch) => {
+        try {
+          await window.db.collection('events').doc(id).update({
+            ...patch, updatedAt: new Date().toISOString(),
+          });
+        } catch (e) { console.error('updateEvent failed', e); }
+      };
+      const deleteEvent = async (id) => {
+        try { await window.db.collection('events').doc(id).delete(); }
+        catch (e) { console.error('deleteEvent failed', e); }
       };
 
       const addTask = async (data) => {
@@ -761,10 +807,10 @@
           <main className="max-w-6xl mx-auto px-8 py-12">
             <div className="mb-8 pb-5 flex items-end justify-between gap-4 flex-wrap" style={{borderBottom:'1px solid var(--border)'}}>
               <h2 className="font-display text-xl tracking-tight" style={{color:'var(--text-faint)'}}>
-                {view === 'board' ? '팀 게시판' : '담당자별 아젠다'}
+                {view === 'board' ? '팀 게시판' : view === 'calendar' ? '팀 캘린더' : '담당자별 아젠다'}
               </h2>
               <div className="flex items-center gap-2">
-                {view !== 'board' && (
+                {view !== 'board' && view !== 'calendar' && (
                   <button
                     onClick={() => setShowAdd(true)}
                     className="text-xs px-4 py-1.5 rounded-full transition tracking-wide flex items-center gap-1.5"
@@ -786,6 +832,15 @@
                 onDelete={deletePost}
                 onAddComment={addPostComment}
                 onDeleteComment={deletePostComment}
+              />
+            ) : view === 'calendar' ? (
+              <CalendarView
+                events={events}
+                currentUser={currentUser}
+                emojis={emojis}
+                onAdd={addEvent}
+                onUpdate={updateEvent}
+                onDelete={deleteEvent}
               />
             ) : (
               <MembersView
@@ -873,8 +928,9 @@
             </button>
             <div className="flex items-center gap-2 sm:gap-5">
               <div className="flex items-center">
-                <TabBtn active={view === 'board'}   onClick={() => setView('board')}   label="게시판" sub="Board" />
-                <TabBtn active={view === 'members'} onClick={() => setView('members')} label="담당자" sub="People" last />
+                <TabBtn active={view === 'board'}    onClick={() => setView('board')}    label="게시판" sub="Board" />
+                <TabBtn active={view === 'members'}  onClick={() => setView('members')}  label="담당자" sub="People" />
+                <TabBtn active={view === 'calendar'} onClick={() => setView('calendar')} label="캘린더" sub="Calendar" last />
               </div>
               <span className="hidden md:inline-block w-px h-5" style={{background: dividerCol}}></span>
               <UserPicker currentUser={currentUser} onLogout={onLogout} pins={pins} emojis={emojis} onSetPin={onSetPin} onSetEmoji={onSetEmoji} onResetPin={onResetPin} />
@@ -1482,6 +1538,521 @@
       );
     }
 
+    // ===== Calendar (KST) =====
+    const KST_OFFSET_MS = 9 * 60 * 60 * 1000;
+    function todayKSTDate() {
+      const now = new Date();
+      const k = new Date(now.getTime() + (now.getTimezoneOffset() * 60000) + KST_OFFSET_MS);
+      return new Date(k.getFullYear(), k.getMonth(), k.getDate());
+    }
+    function ymd(d) {
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, '0');
+      const dd = String(d.getDate()).padStart(2, '0');
+      return y + '-' + m + '-' + dd;
+    }
+    function parseYMD(s) {
+      if (!s) return null;
+      const [y, m, d] = s.split('-').map(Number);
+      return new Date(y, m - 1, d);
+    }
+    function addDays(d, n) {
+      return new Date(d.getFullYear(), d.getMonth(), d.getDate() + n);
+    }
+    function isSameDay(a, b) {
+      return a && b && a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+    }
+
+    const EVENT_COLORS = {
+      blue:   { name: '블루',   bg: '#3b82f6', soft: 'rgba(59,130,246,0.12)',   text: '#1d4ed8' },
+      teal:   { name: '틸',     bg: '#0d9488', soft: 'rgba(13,148,136,0.12)',   text: '#0f766e' },
+      violet: { name: '바이올렛', bg: '#7c3aed', soft: 'rgba(124,58,237,0.12)', text: '#6d28d9' },
+      amber:  { name: '앰버',   bg: '#d97706', soft: 'rgba(217,119,6,0.12)',    text: '#b45309' },
+      rose:   { name: '로즈',   bg: '#e11d48', soft: 'rgba(225,29,72,0.12)',    text: '#be123c' },
+      slate:  { name: '슬레이트', bg: '#475569', soft: 'rgba(71,85,105,0.12)',  text: '#334155' },
+    };
+    const COLOR_KEYS = Object.keys(EVENT_COLORS);
+
+    const KO_MONTHS = ['1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월'];
+    const KO_WEEKDAYS = ['일','월','화','수','목','금','토'];
+
+    function CalendarView({ events, currentUser, emojis, onAdd, onUpdate, onDelete }) {
+      const [cursor, setCursor] = useState(() => {
+        const t = todayKSTDate();
+        return new Date(t.getFullYear(), t.getMonth(), 1);
+      });
+      const [selectedDate, setSelectedDate] = useState(() => todayKSTDate());
+      const [editingEvent, setEditingEvent] = useState(null);
+      const [creatingForDate, setCreatingForDate] = useState(null);
+
+      const today = todayKSTDate();
+
+      // Build the 6-week grid
+      const grid = useMemo(() => {
+        const firstOfMonth = new Date(cursor.getFullYear(), cursor.getMonth(), 1);
+        const startOffset = firstOfMonth.getDay(); // Sunday-based
+        const gridStart = addDays(firstOfMonth, -startOffset);
+        const cells = [];
+        for (let i = 0; i < 42; i++) cells.push(addDays(gridStart, i));
+        return cells;
+      }, [cursor]);
+
+      // Bucket events by date string
+      const eventsByDate = useMemo(() => {
+        const map = {};
+        events.forEach(ev => {
+          const start = parseYMD(ev.date);
+          const end = parseYMD(ev.endDate || ev.date) || start;
+          if (!start) return;
+          let d = new Date(start);
+          while (d <= end) {
+            const key = ymd(d);
+            (map[key] = map[key] || []).push(ev);
+            d = addDays(d, 1);
+          }
+        });
+        // Sort each day: all-day first, then by startTime
+        Object.values(map).forEach(list => list.sort((a, b) => {
+          if (a.allDay !== b.allDay) return a.allDay ? -1 : 1;
+          return (a.startTime || '').localeCompare(b.startTime || '');
+        }));
+        return map;
+      }, [events]);
+
+      const monthEventCount = useMemo(() => {
+        let count = 0;
+        const monthStr = cursor.getFullYear() + '-' + String(cursor.getMonth() + 1).padStart(2, '0');
+        events.forEach(ev => {
+          if ((ev.date || '').startsWith(monthStr)) count++;
+        });
+        return count;
+      }, [events, cursor]);
+
+      const selectedKey = ymd(selectedDate);
+      const selectedEvents = eventsByDate[selectedKey] || [];
+
+      const goPrev = () => setCursor(new Date(cursor.getFullYear(), cursor.getMonth() - 1, 1));
+      const goNext = () => setCursor(new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1));
+      const goToday = () => {
+        const t = todayKSTDate();
+        setCursor(new Date(t.getFullYear(), t.getMonth(), 1));
+        setSelectedDate(t);
+      };
+
+      const openCreate = (dateStr) => setCreatingForDate(dateStr || ymd(selectedDate));
+
+      return (
+        <div className="rounded-md overflow-hidden" style={{background:'var(--surface)', border:'1px solid var(--border)'}}>
+          {/* Toolbar */}
+          <div className="flex items-center justify-between px-5 py-4" style={{borderBottom:'1px solid var(--border)'}}>
+            <div className="flex items-baseline gap-3">
+              <h3 className="font-display tracking-tight" style={{fontSize:'22px', color:'var(--ink)', fontWeight:500}}>
+                {cursor.getFullYear()}년 {KO_MONTHS[cursor.getMonth()]}
+              </h3>
+              <span className="text-xs tabular-nums" style={{color:'var(--text-faint)'}}>{monthEventCount}건</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="inline-flex items-center rounded-md overflow-hidden" style={{border:'1px solid var(--border)'}}>
+                <button onClick={goPrev}
+                        className="px-2.5 py-1.5 transition"
+                        style={{color:'var(--text-muted)'}}
+                        onMouseEnter={(e)=>{e.currentTarget.style.background='var(--surface-2)';e.currentTarget.style.color='var(--ink)';}}
+                        onMouseLeave={(e)=>{e.currentTarget.style.background='transparent';e.currentTarget.style.color='var(--text-muted)';}}
+                        title="이전 달">
+                  <ChevronLeft size={15} strokeWidth={1.7} />
+                </button>
+                <button onClick={goToday}
+                        className="text-xs px-3 py-1.5 transition tracking-wide"
+                        style={{color:'var(--ink)', background:'transparent', borderLeft:'1px solid var(--border)', borderRight:'1px solid var(--border)', fontWeight:500}}
+                        onMouseEnter={(e)=>e.currentTarget.style.background='var(--surface-2)'}
+                        onMouseLeave={(e)=>e.currentTarget.style.background='transparent'}>
+                  오늘
+                </button>
+                <button onClick={goNext}
+                        className="px-2.5 py-1.5 transition"
+                        style={{color:'var(--text-muted)'}}
+                        onMouseEnter={(e)=>{e.currentTarget.style.background='var(--surface-2)';e.currentTarget.style.color='var(--ink)';}}
+                        onMouseLeave={(e)=>{e.currentTarget.style.background='transparent';e.currentTarget.style.color='var(--text-muted)';}}
+                        title="다음 달">
+                  <ChevronRight size={15} strokeWidth={1.7} />
+                </button>
+              </div>
+              <button onClick={() => openCreate()}
+                      className="text-xs px-3.5 py-1.5 rounded-md transition tracking-wide flex items-center gap-1.5"
+                      style={{background:'var(--ink)', color:'white', fontWeight:500}}>
+                <Plus size={12} strokeWidth={2.2} /> 일정 추가
+              </button>
+            </div>
+          </div>
+
+          {/* Weekday header */}
+          <div className="grid grid-cols-7" style={{borderBottom:'1px solid var(--border)'}}>
+            {KO_WEEKDAYS.map((d, i) => (
+              <div key={d} className="text-[11px] tracking-[0.18em] uppercase font-eyebrow text-center py-2.5"
+                   style={{color: i === 0 ? '#dc2626' : i === 6 ? '#2563eb' : 'var(--text-muted)'}}>
+                {d}
+              </div>
+            ))}
+          </div>
+
+          {/* Calendar grid */}
+          <div className="grid grid-cols-7" style={{borderTop:'1px solid var(--border)'}}>
+            {grid.map((d, i) => {
+              const inMonth = d.getMonth() === cursor.getMonth();
+              const isToday = isSameDay(d, today);
+              const isSelected = isSameDay(d, selectedDate);
+              const isWeekend = d.getDay() === 0 || d.getDay() === 6;
+              const isSunday = d.getDay() === 0;
+              const dayEvents = eventsByDate[ymd(d)] || [];
+              const visible = dayEvents.slice(0, 3);
+              const more = Math.max(0, dayEvents.length - visible.length);
+              const isLastRow = i >= 35;
+              const isLastCol = (i + 1) % 7 === 0;
+              return (
+                <button
+                  key={i}
+                  onClick={() => setSelectedDate(d)}
+                  onDoubleClick={() => openCreate(ymd(d))}
+                  className="text-left transition relative"
+                  style={{
+                    minHeight: '108px',
+                    padding: '6px 6px 4px 6px',
+                    borderRight: isLastCol ? 'none' : '1px solid var(--border)',
+                    borderBottom: isLastRow ? 'none' : '1px solid var(--border)',
+                    background: isSelected
+                      ? 'rgba(28,37,64,0.04)'
+                      : (inMonth ? 'transparent' : 'var(--surface-2)'),
+                    opacity: inMonth ? 1 : 0.55,
+                    cursor: 'pointer',
+                  }}
+                  onMouseEnter={(e) => { if (!isSelected) e.currentTarget.style.background = 'var(--surface-2)'; }}
+                  onMouseLeave={(e) => { if (!isSelected) e.currentTarget.style.background = inMonth ? 'transparent' : 'var(--surface-2)'; }}
+                >
+                  <div className="flex items-center justify-between mb-1">
+                    {isToday ? (
+                      <span className="inline-flex items-center justify-center rounded-full tabular-nums"
+                            style={{width:'22px', height:'22px', background:'var(--ink)', color:'white', fontSize:'12px', fontWeight:600}}>
+                        {d.getDate()}
+                      </span>
+                    ) : (
+                      <span className="tabular-nums" style={{
+                        fontSize: '13px',
+                        fontWeight: isSelected ? 600 : 500,
+                        color: !inMonth ? 'var(--text-faint)' : isSunday ? '#dc2626' : isWeekend ? '#2563eb' : 'var(--ink)',
+                        marginLeft: '2px',
+                      }}>
+                        {d.getDate()}
+                      </span>
+                    )}
+                  </div>
+                  <div className="space-y-[2px]">
+                    {visible.map(ev => {
+                      const c = EVENT_COLORS[ev.color] || EVENT_COLORS.blue;
+                      return (
+                        <div key={ev.id}
+                             onClick={(e) => { e.stopPropagation(); setEditingEvent(ev); }}
+                             className="rounded-sm truncate cursor-pointer transition hover:opacity-100"
+                             style={{
+                               background: ev.allDay ? c.bg : 'transparent',
+                               color: ev.allDay ? 'white' : c.text,
+                               fontSize: '11px',
+                               lineHeight: 1.35,
+                               padding: ev.allDay ? '2px 5px' : '1px 4px 1px 6px',
+                               fontWeight: 500,
+                               position: 'relative',
+                             }}>
+                          {!ev.allDay && (
+                            <span style={{position:'absolute', left:'2px', top:'50%', transform:'translateY(-50%)',
+                                          width:'4px', height:'4px', background:c.bg, borderRadius:'50%'}}></span>
+                          )}
+                          {!ev.allDay && ev.startTime && (
+                            <span className="tabular-nums mr-1" style={{opacity:0.85}}>{ev.startTime}</span>
+                          )}
+                          {ev.title || '(제목 없음)'}
+                        </div>
+                      );
+                    })}
+                    {more > 0 && (
+                      <div style={{fontSize:'10px', color:'var(--text-muted)', padding:'1px 4px', fontWeight:500}}>
+                        + {more}건 더보기
+                      </div>
+                    )}
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Selected day detail */}
+          <div className="px-5 py-4" style={{borderTop:'1px solid var(--border)', background:'var(--surface-2)'}}>
+            <div className="flex items-center justify-between mb-3">
+              <div>
+                <div className="text-[10px] tracking-[0.2em] uppercase font-eyebrow" style={{color:'var(--text-faint)'}}>
+                  Selected · {KO_WEEKDAYS[selectedDate.getDay()]}요일
+                </div>
+                <div className="font-display tracking-tight mt-0.5" style={{fontSize:'18px', color:'var(--ink)', fontWeight:500}}>
+                  {selectedDate.getMonth() + 1}월 {selectedDate.getDate()}일
+                </div>
+              </div>
+              <button onClick={() => openCreate()}
+                      className="text-xs px-3 py-1.5 rounded-md transition tracking-wide flex items-center gap-1.5"
+                      style={{background:'transparent', color:'var(--ink)', border:'1px solid var(--ink)', fontWeight:500}}
+                      onMouseEnter={(e)=>{e.currentTarget.style.background='var(--ink)';e.currentTarget.style.color='white';}}
+                      onMouseLeave={(e)=>{e.currentTarget.style.background='transparent';e.currentTarget.style.color='var(--ink)';}}>
+                <Plus size={11} strokeWidth={2.2} /> 일정 추가
+              </button>
+            </div>
+            {selectedEvents.length === 0 ? (
+              <div className="text-sm py-3" style={{color:'var(--text-muted)'}}>
+                이 날에는 일정이 없습니다
+              </div>
+            ) : (
+              <ul className="space-y-1.5">
+                {selectedEvents.map(ev => {
+                  const c = EVENT_COLORS[ev.color] || EVENT_COLORS.blue;
+                  const author = memberById(ev.authorId);
+                  return (
+                    <li key={ev.id}
+                        onClick={() => setEditingEvent(ev)}
+                        className="rounded-md px-3 py-2.5 cursor-pointer transition flex items-center gap-3"
+                        style={{background:'var(--surface)', border:'1px solid var(--border)'}}
+                        onMouseEnter={(e)=>e.currentTarget.style.borderColor='var(--border-strong)'}
+                        onMouseLeave={(e)=>e.currentTarget.style.borderColor='var(--border)'}>
+                      <div style={{width:'3px', alignSelf:'stretch', background:c.bg, borderRadius:'2px'}}></div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-baseline gap-2 flex-wrap">
+                          <span className="text-sm" style={{color:'var(--ink)', fontWeight:600}}>{ev.title || '(제목 없음)'}</span>
+                          {ev.allDay ? (
+                            <span className="text-[10px] tracking-wide px-1.5 py-0.5 rounded-sm"
+                                  style={{background:c.soft, color:c.text, fontWeight:500}}>
+                              종일
+                            </span>
+                          ) : ev.startTime && (
+                            <span className="text-xs tabular-nums" style={{color:'var(--text-muted)'}}>
+                              {ev.startTime}{ev.endTime ? ' – ' + ev.endTime : ''}
+                            </span>
+                          )}
+                        </div>
+                        {ev.description && (
+                          <div className="text-xs mt-1 leading-relaxed" style={{color:'var(--text-muted)'}}>
+                            {ev.description}
+                          </div>
+                        )}
+                        <div className="text-[10px] mt-1.5" style={{color:'var(--text-faint)'}}>
+                          {author?.name || '—'} {author?.title || ''}
+                        </div>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </div>
+
+          {creatingForDate && (
+            <EventEditor mode="create" defaultDate={creatingForDate} currentUser={currentUser}
+                         onSave={(data) => { onAdd(data); setCreatingForDate(null); }}
+                         onClose={() => setCreatingForDate(null)} />
+          )}
+          {editingEvent && (
+            <EventEditor mode="edit" event={editingEvent} currentUser={currentUser}
+                         onSave={(data) => { onUpdate(editingEvent.id, data); setEditingEvent(null); }}
+                         onDelete={() => { onDelete(editingEvent.id); setEditingEvent(null); }}
+                         onClose={() => setEditingEvent(null)} />
+          )}
+        </div>
+      );
+    }
+
+    function EventEditor({ mode, event, defaultDate, currentUser, onSave, onDelete, onClose }) {
+      const isEdit = mode === 'edit';
+      const [title, setTitle] = useState(event?.title || '');
+      const [allDay, setAllDay] = useState(event ? !!event.allDay : true);
+      const [date, setDate] = useState(event?.date || defaultDate || ymd(todayKSTDate()));
+      const [endDate, setEndDate] = useState(event?.endDate || event?.date || defaultDate || ymd(todayKSTDate()));
+      const [startTime, setStartTime] = useState(event?.startTime || '09:00');
+      const [endTime, setEndTime] = useState(event?.endTime || '10:00');
+      const [color, setColor] = useState(event?.color || 'blue');
+      const [description, setDescription] = useState(event?.description || '');
+
+      const canEdit = !isEdit || event.authorId === currentUser || currentUser === 'lee_dh';
+      const author = isEdit ? memberById(event.authorId) : null;
+
+      const submit = () => {
+        if (!title.trim()) { alert('일정 제목을 입력하세요'); return; }
+        const data = {
+          title: title.trim(),
+          allDay,
+          date,
+          endDate: allDay ? endDate : date,
+          startTime: allDay ? '' : startTime,
+          endTime: allDay ? '' : endTime,
+          color,
+          description: description.trim(),
+        };
+        onSave(data);
+      };
+
+      return (
+        <Modal onClose={onClose}>
+          <div className="px-7 py-5 flex items-center justify-between" style={{borderBottom:'1px solid var(--border)'}}>
+            <div>
+              <div className="text-[10px] tracking-[0.3em] uppercase mb-1.5 font-eyebrow" style={{color:'var(--text-faint)'}}>
+                {isEdit ? 'Edit Event' : 'New Event'}
+              </div>
+              <h2 className="font-display text-xl tracking-tight" style={{color:'var(--ink)'}}>
+                {isEdit ? '일정 수정' : '일정 추가'}
+              </h2>
+            </div>
+            <button onClick={onClose} style={{color:'var(--text-muted)'}}>
+              <XIcon size={18} strokeWidth={1.5} />
+            </button>
+          </div>
+
+          <div className="px-7 py-5 space-y-5">
+            <div>
+              <label className="text-[10px] tracking-[0.2em] uppercase font-eyebrow mb-2 block" style={{color:'var(--text-faint)'}}>제목</label>
+              <input type="text" value={title} onChange={(e) => setTitle(e.target.value)}
+                     placeholder="일정 제목"
+                     disabled={!canEdit}
+                     autoFocus
+                     className="w-full bg-transparent outline-none"
+                     style={{color:'var(--ink)', fontSize:'18px', fontWeight:600, paddingBottom:'8px', borderBottom:'1px solid var(--border)'}} />
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button onClick={() => setAllDay(true)} disabled={!canEdit}
+                      className="text-xs px-3 py-1.5 rounded-md transition tracking-wide"
+                      style={{
+                        background: allDay ? 'var(--ink)' : 'transparent',
+                        color: allDay ? 'white' : 'var(--text-muted)',
+                        border: '1px solid ' + (allDay ? 'var(--ink)' : 'var(--border)'),
+                        fontWeight: allDay ? 500 : 400,
+                      }}>
+                종일
+              </button>
+              <button onClick={() => setAllDay(false)} disabled={!canEdit}
+                      className="text-xs px-3 py-1.5 rounded-md transition tracking-wide"
+                      style={{
+                        background: !allDay ? 'var(--ink)' : 'transparent',
+                        color: !allDay ? 'white' : 'var(--text-muted)',
+                        border: '1px solid ' + (!allDay ? 'var(--ink)' : 'var(--border)'),
+                        fontWeight: !allDay ? 500 : 400,
+                      }}>
+                시간 지정
+              </button>
+            </div>
+
+            {allDay ? (
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-[10px] tracking-[0.2em] uppercase font-eyebrow mb-2 block" style={{color:'var(--text-faint)'}}>시작 날짜</label>
+                  <input type="date" value={date} onChange={(e) => { setDate(e.target.value); if (e.target.value > endDate) setEndDate(e.target.value); }}
+                         disabled={!canEdit}
+                         className="w-full px-3 py-2 rounded-sm text-sm outline-none"
+                         style={{background:'var(--surface)', border:'1px solid var(--border)', color:'var(--ink)'}} />
+                </div>
+                <div>
+                  <label className="text-[10px] tracking-[0.2em] uppercase font-eyebrow mb-2 block" style={{color:'var(--text-faint)'}}>종료 날짜</label>
+                  <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)}
+                         min={date}
+                         disabled={!canEdit}
+                         className="w-full px-3 py-2 rounded-sm text-sm outline-none"
+                         style={{background:'var(--surface)', border:'1px solid var(--border)', color:'var(--ink)'}} />
+                </div>
+              </div>
+            ) : (
+              <>
+                <div>
+                  <label className="text-[10px] tracking-[0.2em] uppercase font-eyebrow mb-2 block" style={{color:'var(--text-faint)'}}>날짜</label>
+                  <input type="date" value={date} onChange={(e) => setDate(e.target.value)}
+                         disabled={!canEdit}
+                         className="w-full px-3 py-2 rounded-sm text-sm outline-none"
+                         style={{background:'var(--surface)', border:'1px solid var(--border)', color:'var(--ink)'}} />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-[10px] tracking-[0.2em] uppercase font-eyebrow mb-2 block" style={{color:'var(--text-faint)'}}>시작 시간</label>
+                    <input type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)}
+                           disabled={!canEdit}
+                           className="w-full px-3 py-2 rounded-sm text-sm outline-none tabular-nums"
+                           style={{background:'var(--surface)', border:'1px solid var(--border)', color:'var(--ink)'}} />
+                  </div>
+                  <div>
+                    <label className="text-[10px] tracking-[0.2em] uppercase font-eyebrow mb-2 block" style={{color:'var(--text-faint)'}}>종료 시간</label>
+                    <input type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)}
+                           disabled={!canEdit}
+                           className="w-full px-3 py-2 rounded-sm text-sm outline-none tabular-nums"
+                           style={{background:'var(--surface)', border:'1px solid var(--border)', color:'var(--ink)'}} />
+                  </div>
+                </div>
+              </>
+            )}
+
+            <div>
+              <label className="text-[10px] tracking-[0.2em] uppercase font-eyebrow mb-2 block" style={{color:'var(--text-faint)'}}>색상</label>
+              <div className="flex items-center gap-2">
+                {COLOR_KEYS.map(k => (
+                  <button key={k} onClick={() => setColor(k)} disabled={!canEdit}
+                          className="rounded-full transition flex items-center justify-center"
+                          style={{
+                            width: '28px', height: '28px',
+                            background: EVENT_COLORS[k].bg,
+                            border: '2px solid ' + (color === k ? 'var(--ink)' : 'transparent'),
+                            outline: color === k ? '1px solid white' : 'none',
+                            outlineOffset: '-3px',
+                          }}
+                          title={EVENT_COLORS[k].name} />
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <label className="text-[10px] tracking-[0.2em] uppercase font-eyebrow mb-2 block" style={{color:'var(--text-faint)'}}>설명 (선택)</label>
+              <textarea value={description} onChange={(e) => setDescription(e.target.value)}
+                        disabled={!canEdit}
+                        placeholder="추가 메모"
+                        rows={2}
+                        className="w-full px-3 py-2 rounded-sm text-sm outline-none leading-relaxed"
+                        style={{background:'var(--surface)', border:'1px solid var(--border)', color:'var(--text)', resize:'vertical'}} />
+            </div>
+
+            {isEdit && author && (
+              <div className="text-[10px]" style={{color:'var(--text-faint)'}}>
+                작성자: {author.name} {author.title}
+              </div>
+            )}
+          </div>
+
+          <div className="px-7 py-4 flex items-center justify-between" style={{borderTop:'1px solid var(--border)', background:'var(--surface-2)'}}>
+            <div>
+              {isEdit && canEdit && (
+                <button onClick={() => { if (confirm('이 일정을 삭제하시겠습니까?')) onDelete(); }}
+                        className="text-xs px-3 py-1.5 rounded-sm transition tracking-wide"
+                        style={{color:'#a83247'}}>
+                  삭제
+                </button>
+              )}
+            </div>
+            <div className="flex gap-2">
+              <button onClick={onClose}
+                      className="text-xs px-4 py-1.5 rounded-md transition tracking-wide"
+                      style={{color:'var(--text-muted)'}}>
+                취소
+              </button>
+              {canEdit && (
+                <button onClick={submit}
+                        className="text-xs px-4 py-1.5 rounded-md transition tracking-wide"
+                        style={{background:'var(--ink)', color:'white', fontWeight:500}}>
+                  {isEdit ? '저장' : '추가'}
+                </button>
+              )}
+            </div>
+          </div>
+        </Modal>
+      );
+    }
+
     function MembersView({ tasks, stats, onOpenMember }) {
       const groups = [
         { id: 'head', label: 'MANAGER', sub: '부서장 · 팀장', theme: HEAD_THEME, members: MEMBERS.filter(m => m.group === 'head') },
@@ -1538,9 +2109,6 @@
                 <>
                   <div className="text-sm leading-snug" style={{color: 'rgba(255,255,255,0.95)', fontWeight: 500}}>
                     {priorityBrands.map(b => b.name.split('/')[0]).join(' · ')}
-                    {otherCount > 0 && (
-                      <span style={{color: 'rgba(255,255,255,0.6)', fontWeight: 400, marginLeft: '4px'}}>외</span>
-                    )}
                   </div>
                   {otherCount > 0 && (
                     <div className="text-xs mt-0.5" style={{color: 'rgba(255,255,255,0.55)'}}>외 {otherCount}개 브랜드</div>
