@@ -178,6 +178,21 @@
       { id: 'part3', label: 'Pod III', labelKo: 'Pod 3', members: ['yang_sb', 'noh_km'] },
     ];
 
+    // Pod / group color theming (cool blue family)
+    const HEAD_THEME = { from: '#1c2540', to: '#2a3556', numeral: 'L' };
+    const PART_THEME = {
+      part1: { from: '#3d5a98', to: '#5b7bbf', numeral: 'I'   },  // slate blue
+      part2: { from: '#2c7d8a', to: '#4fa3b0', numeral: 'II'  },  // teal
+      part3: { from: '#5e4d96', to: '#7e6cbe', numeral: 'III' },  // indigo violet
+    };
+
+    // Resolve a member's group color (Manager navy / Pod accents)
+    function colorOfMember(m) {
+      if (!m) return 'var(--ink)';
+      if (m.group === 'head') return HEAD_THEME.from;
+      return (PART_THEME[m.group] || {}).from || 'var(--ink)';
+    }
+
     const BRANDS = [
       { id: 'bodyfantasy',   name: '바디판타지',          part: 'part1', priority: true },
       { id: 'akoroyal',      name: '아코로얄',            part: 'part1', priority: true },
