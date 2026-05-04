@@ -2701,7 +2701,7 @@
           return mm.name.toLowerCase().includes(q) || mm.id.toLowerCase().includes(q);
         });
         const list = groupMatches ? [GROUP_MENTION, ...members] : members;
-        return list.slice(0, 7);
+        return list.slice(0, 10);
       })() : [];
 
       const insertMention = (member) => {
