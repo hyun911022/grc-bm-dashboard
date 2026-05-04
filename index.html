@@ -687,6 +687,7 @@
           dueDate: data.dueDate || '',
           priority: data.priority || 'normal',
           status: data.status || 'pending',
+          private: !!data.private,
           createdBy: currentUser,
           comments: [],
           createdAt: new Date().toISOString(),
@@ -745,10 +746,20 @@
         }
       }, [isAnyOpen]);
 
+      // Visibility: a private task is only visible to its assignees, its author, and lee_dh.
+      const canSeeTask = (t) => {
+        if (!t || !t.private) return true;
+        if (currentUser === 'lee_dh') return true;
+        if (t.createdBy === currentUser) return true;
+        const ids = t.assigneeIds || (t.assigneeId ? [t.assigneeId] : []);
+        return ids.includes(currentUser);
+      };
+      const visibleTasks = useMemo(() => tasks.filter(canSeeTask), [tasks, currentUser]);
+
       const stats = useMemo(() => {
         const byBrand = {}, byBrandActive = {}, byMember = {}, byMemberActive = {}, byMemberPending = {}, byMemberMentions = {}, byMemberReplies = {};
         const byPart = {}, byPartActive = {};
-        tasks.forEach(t => {
+        visibleTasks.forEach(t => {
           if (t.brandId && t.brandId !== '__all__') {
             byBrand[t.brandId] = (byBrand[t.brandId] || 0) + 1;
             if (t.status !== 'done') byBrandActive[t.brandId] = (byBrandActive[t.brandId] || 0) + 1;
@@ -781,7 +792,7 @@
         const inProgress = tasks.filter(t => t.status === 'in_progress').length;
         const overdue = tasks.filter(t => t.status !== 'done' && t.dueDate && daysUntil(t.dueDate) < 0).length;
         return { byBrand, byBrandActive, byMember, byMemberActive, byMemberPending, byMemberMentions, byMemberReplies, byPart, byPartActive, active, inProgress, overdue, total: tasks.length };
-      }, [tasks]);
+      }, [visibleTasks]);
 
       if (!loaded) {
         return (
@@ -844,7 +855,7 @@
               />
             ) : (
               <MembersView
-                tasks={tasks}
+                tasks={visibleTasks}
                 stats={stats}
                 onOpenMember={(id) => setOpenMember(id)}
               />
@@ -870,8 +881,8 @@
           {openMember && (
             <MemberModal
               memberId={openMember}
-              tasks={tasks}
-              allTasks={tasks}
+              tasks={visibleTasks}
+              allTasks={visibleTasks}
               onClose={() => setOpenMember(null)}
               onUpdate={updateTask} onDelete={removeOrDelete}
               onChangeStatus={(id, next) => updateTask(id, { status: next })} onEdit={(t) => setEditingTask(t)}
@@ -2943,7 +2954,13 @@
                     {b ? b.name.split('/')[0] : '전사 공용'}
                   </span>
                 )}
-                <span className="text-sm" style={{color: isDone ? 'var(--text-faint)' : 'var(--ink)', textDecoration: isDone ? 'line-through' : 'none'}}>
+                <span className="text-sm flex items-center gap-1.5" style={{color: isDone ? 'var(--text-faint)' : 'var(--ink)', textDecoration: isDone ? 'line-through' : 'none'}}>
+                  {task.private && (
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#a37800" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{flexShrink:0}}>
+                      <rect width="18" height="11" x="3" y="11" rx="2" ry="2"/>
+                      <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+                    </svg>
+                  )}
                   {task.title}
                 </span>
                 {task.priority === 'high' && (
@@ -3138,10 +3155,16 @@
       const [assigneeIds, setAssigneeIds] = useState(initial?.assigneeIds || (initial?.assigneeId ? [initial.assigneeId] : []));
       const [dueDate, setDueDate] = useState(initial?.dueDate || '');
       const [priority, setPriority] = useState(initial?.priority || 'normal');
+      const [isPrivate, setIsPrivate] = useState(!!initial?.private);
       const submit = (e) => {
         e.preventDefault();
         if (!title.trim() || !brandId || assigneeIds.length === 0) return;
-        onSubmit({ title: title.trim(), description: description.trim(), brandId, assigneeIds, dueDate, priority, status: initial?.status || 'pending' });
+        onSubmit({
+          title: title.trim(), description: description.trim(),
+          brandId, assigneeIds, dueDate, priority,
+          private: isPrivate,
+          status: initial?.status || 'pending',
+        });
       };
       return (
         <Modal onClose={onClose}>
@@ -3200,6 +3223,36 @@
               <FormField label="우선순위">
                 <PriorityButtons value={priority} onChange={setPriority} />
               </FormField>
+            </div>
+            <div className="rounded-sm p-3 flex items-start gap-3" style={{background: isPrivate ? 'rgba(234,179,8,0.08)' : 'var(--surface-2)', border: '1px solid ' + (isPrivate ? '#d6c08a' : 'var(--border)'), transition:'all 0.15s ease'}}>
+              <button type="button"
+                      onClick={() => setIsPrivate(!isPrivate)}
+                      className="flex-shrink-0 mt-0.5 rounded transition flex items-center justify-center"
+                      style={{
+                        width:'18px', height:'18px',
+                        background: isPrivate ? '#a37800' : 'white',
+                        border: '1.5px solid ' + (isPrivate ? '#a37800' : 'var(--border-strong)'),
+                      }}>
+                {isPrivate && (
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="20 6 9 17 4 12"/>
+                  </svg>
+                )}
+              </button>
+              <button type="button" onClick={() => setIsPrivate(!isPrivate)} className="text-left flex-1">
+                <div className="flex items-center gap-1.5 text-sm" style={{color: isPrivate ? '#854d0e' : 'var(--ink)', fontWeight: isPrivate ? 600 : 500}}>
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <rect width="18" height="11" x="3" y="11" rx="2" ry="2"/>
+                    <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+                  </svg>
+                  비공개 작업
+                </div>
+                <div className="text-xs mt-0.5 leading-relaxed" style={{color: isPrivate ? '#a37800' : 'var(--text-muted)'}}>
+                  {isPrivate
+                    ? '담당자, 작성자, 이동현 차장(관리자)만 이 작업을 볼 수 있습니다'
+                    : '체크하면 담당자에게만 표시됩니다'}
+                </div>
+              </button>
             </div>
             <div className="flex items-center justify-end gap-3 pt-4" style={{borderTop:'1px solid var(--border)'}}>
               <button type="button" onClick={onClose} className="text-sm px-4 py-2 transition" style={{color:'var(--text-muted)'}}>취소</button>
