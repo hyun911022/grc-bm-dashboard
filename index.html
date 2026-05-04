@@ -2509,6 +2509,8 @@
       const myTasks = (allTasks || tasks).filter(t => (t.assigneeIds || []).includes(memberId));
       const activeTasks  = myTasks.filter(t => t.status !== 'done');
       const doneTasks    = myTasks.filter(t => t.status === 'done');
+      const pendingTasks = myTasks.filter(t => t.status === 'pending');
+      const showPendingBanner = memberId === currentUser && pendingTasks.length > 0;
       // Mentions: tasks where this member is referenced (in description or in any comment)
       const mentionedItems = [];
       (allTasks || tasks).forEach(t => {
