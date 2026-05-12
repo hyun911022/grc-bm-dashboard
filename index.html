@@ -3235,7 +3235,7 @@
             </span>
             <span style={{color:'var(--text-faint)', fontSize:'10px'}}>{when}{comment.editedAt ? ' · 수정됨' : ''}</span>
             {!editing && (canEdit || canDelete) && (
-              <span className="ml-auto flex items-center gap-2 opacity-0 group-hover:opacity-100 transition">
+              <span className="ml-auto flex items-center gap-2 transition">
                 {canEdit && onEdit && (
                   <button onClick={() => setEditing(true)}
                           style={{color:'var(--text-faint)', fontSize:'10px'}}>
@@ -3320,12 +3320,16 @@
           setUploading(true);
           try {
             for (const f of pendingFiles) {
-              const a = await window.uploadAttachment(f, 'comments');
+              // 20s timeout — typically signals Firebase Storage not enabled / wrong bucket
+              const a = await Promise.race([
+                window.uploadAttachment(f, 'comments'),
+                new Promise((_, rj) => setTimeout(() => rj(new Error('업로드 시간 초과 (20s) — Firebase Storage가 활성화돼있는지 확인하세요')), 20000)),
+              ]);
               attachments.push(a);
             }
           } catch (e) {
             console.error('upload failed', e);
-            alert('첨부 업로드 실패: ' + e.message + '\n\n(Firebase Storage가 활성화돼있는지 확인하세요)');
+            alert('첨부 업로드 실패\n\n' + (e.message || e.code || '알 수 없는 오류') + '\n\n(Firebase Console → Storage → 시작하기 가 필요합니다)');
             setUploading(false);
             return;
           }
