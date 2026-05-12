@@ -893,12 +893,12 @@
           {openBrand && (
             <BrandModal
               brandId={openBrand}
-              tasks={tasks.filter(t => t.brandId === openBrand)}
+              tasks={visibleTasks.filter(t => t.brandId === openBrand)}
               onClose={() => setOpenBrand(null)}
               onAdd={addTask} onUpdate={updateTask} onDelete={removeOrDelete}
               onChangeStatus={(id, next) => updateTask(id, { status: next })} onEdit={(t) => setEditingTask(t)}
               currentUser={currentUser}
-              onAddComment={addComment} onDeleteComment={deleteComment}
+              onAddComment={addComment} onDeleteComment={deleteComment} onEditComment={editComment}
             />
           )}
           {openMember && (
@@ -2553,7 +2553,7 @@
       );
     }
 
-    function BrandModal({ brandId, tasks, onClose, onAdd, onChangeStatus, onDelete, onEdit, currentUser, onAddComment, onDeleteComment }) {
+    function BrandModal({ brandId, tasks, onClose, onAdd, onChangeStatus, onDelete, onEdit, currentUser, onAddComment, onDeleteComment, onEditComment }) {
       const brand = brandById(brandId);
       const [showForm, setShowForm] = useState(tasks.length === 0);
       const sorted = [...tasks].sort((a, b) => {
