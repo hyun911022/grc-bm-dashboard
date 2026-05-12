@@ -84,7 +84,6 @@
   <!-- Firebase (compat builds for in-browser <script> use) -->
   <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-storage-compat.js"></script>
   <script>
     const firebaseConfig = {
       apiKey: "AIzaSyAVhGrbmltdl8VfSNbgzf0VlrRcLsjFjI0",
@@ -96,15 +95,6 @@
     };
     firebase.initializeApp(firebaseConfig);
     window.db = firebase.firestore();
-    window.storage = firebase.storage();
-    window.uploadAttachment = async function(file, folder) {
-      var safeName = file.name.replace(/[^\w.\-]+/g, '_');
-      var path = (folder || 'attachments') + '/' + Date.now() + '_' + Math.random().toString(36).slice(2, 8) + '_' + safeName;
-      var ref = window.storage.ref(path);
-      var snap = await ref.put(file);
-      var url = await snap.ref.getDownloadURL();
-      return { name: file.name, url: url, type: file.type || '', size: file.size || 0 };
-    };
   </script>
   <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
   <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
@@ -660,14 +650,13 @@
       };
       const resetPin = (id) => resetPinAdmin(id);
 
-      const addComment = async (taskId, body, attachments) => {
+      const addComment = async (taskId, body) => {
         const t = tasks.find(x => x.id === taskId);
         if (!t) return;
         const c = {
           id: 'c_' + Date.now().toString(36) + Math.random().toString(36).slice(2,5),
           authorId: currentUser,
           body: body,
-          attachments: attachments || [],
           createdAt: new Date().toISOString(),
         };
         await updateTask(taskId, { comments: [...(t.comments || []), c] });
@@ -712,13 +701,12 @@
         try { await window.db.collection('posts').doc(id).delete(); }
         catch (e) { console.error('deletePost failed', e); }
       };
-      const addPostComment = async (postId, body, attachments) => {
+      const addPostComment = async (postId, body) => {
         const p = posts.find(x => x.id === postId);
         if (!p) return;
         const c = {
           id: 'c_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5),
           authorId: currentUser, body,
-          attachments: attachments || [],
           createdAt: new Date().toISOString(),
         };
         await updatePost(postId, { comments: [...(p.comments || []), c] });
@@ -3270,74 +3258,16 @@
               <RichText text={comment.body} />
             </div>
           )}
-          {comment.attachments && comment.attachments.length > 0 && (
-            <div className="mt-2 flex flex-wrap gap-2">
-              {comment.attachments.map((a, i) => (
-                a.type && a.type.startsWith('image/') ? (
-                  <a key={i} href={a.url} target="_blank" rel="noopener noreferrer"
-                     style={{display:'inline-block', borderRadius:'4px', overflow:'hidden', border:'1px solid var(--border)'}}
-                     title={a.name}>
-                    <img src={a.url} alt={a.name}
-                         style={{display:'block', maxWidth:'220px', maxHeight:'160px', objectFit:'cover'}} />
-                  </a>
-                ) : (
-                  <a key={i} href={a.url} target="_blank" rel="noopener noreferrer" download={a.name}
-                     className="inline-flex items-center gap-1.5 text-[11px] px-2 py-1 rounded-sm transition"
-                     style={{background:'var(--surface-2)', border:'1px solid var(--border)', color:'var(--ink)'}}
-                     onMouseEnter={(e)=>e.currentTarget.style.borderColor='var(--border-strong)'}
-                     onMouseLeave={(e)=>e.currentTarget.style.borderColor='var(--border)'}
-                     title={a.name + ' (' + Math.round((a.size||0)/1024) + ' KB)'}>
-                    📎 <span style={{maxWidth:'200px'}} className="truncate">{a.name}</span>
-                  </a>
-                )
-              ))}
-            </div>
-          )}
         </li>
       );
     }
 
     function CommentThread({ task, currentUser, onAddComment, onDeleteComment, onEditComment }) {
       const [draft, setDraft] = useState('');
-      const [pendingFiles, setPendingFiles] = useState([]);
-      const [uploading, setUploading] = useState(false);
-      const fileInputRef = useRef(null);
-      const onPickFiles = (e) => {
-        const list = Array.from(e.target.files || []);
-        const filtered = list.filter(f => {
-          if (f.size > 15 * 1024 * 1024) { alert('파일 한도 초과 (15MB): ' + f.name); return false; }
-          return true;
-        });
-        setPendingFiles(prev => [...prev, ...filtered]);
-        if (e.target) e.target.value = '';
-      };
-      const removePending = (idx) => setPendingFiles(prev => prev.filter((_, i) => i !== idx));
-      const submit = async () => {
-        if ((!draft || !draft.trim()) && pendingFiles.length === 0) return;
-        if (uploading) return;
-        let attachments = [];
-        if (pendingFiles.length > 0) {
-          setUploading(true);
-          try {
-            for (const f of pendingFiles) {
-              // 20s timeout — typically signals Firebase Storage not enabled / wrong bucket
-              const a = await Promise.race([
-                window.uploadAttachment(f, 'comments'),
-                new Promise((_, rj) => setTimeout(() => rj(new Error('업로드 시간 초과 (20s) — Firebase Storage가 활성화돼있는지 확인하세요')), 20000)),
-              ]);
-              attachments.push(a);
-            }
-          } catch (e) {
-            console.error('upload failed', e);
-            alert('첨부 업로드 실패\n\n' + (e.message || e.code || '알 수 없는 오류') + '\n\n(Firebase Console → Storage → 시작하기 가 필요합니다)');
-            setUploading(false);
-            return;
-          }
-          setUploading(false);
-        }
-        await onAddComment(task.id, (draft || '').trim(), attachments);
+      const submit = () => {
+        if (!draft.trim()) return;
+        onAddComment(task.id, draft.trim());
         setDraft('');
-        setPendingFiles([]);
       };
       const onKey = (e) => {
         if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') { e.preventDefault(); submit(); }
@@ -3362,36 +3292,14 @@
               className="w-full bg-transparent text-xs px-3 py-2 outline-none resize-none leading-relaxed"
               style={{color:'var(--text)', minHeight:'52px'}}
             />
-            <input type="file" ref={fileInputRef} multiple onChange={onPickFiles} style={{display:'none'}} />
-            {pendingFiles.length > 0 && (
-              <div className="px-3 py-1.5 flex flex-wrap gap-1.5" style={{borderTop:'1px solid var(--border)', background:'var(--surface-2)'}}>
-                {pendingFiles.map((f, i) => (
-                  <span key={i} className="inline-flex items-center gap-1.5 text-[10px] px-2 py-1 rounded-sm"
-                        style={{background:'var(--surface)', border:'1px solid var(--border)', color:'var(--text)'}}>
-                    {f.type.startsWith('image/') ? '🖼' : '📎'} <span style={{maxWidth:'160px'}} className="truncate">{f.name}</span>
-                    <button onClick={() => removePending(i)} type="button"
-                            style={{color:'var(--text-faint)', fontSize:'11px', lineHeight:1}}>×</button>
-                  </span>
-                ))}
-              </div>
-            )}
             <div className="flex items-center justify-between px-3 py-1.5" style={{borderTop:'1px solid var(--border)'}}>
-              <div className="flex items-center gap-3">
-                <button type="button" onClick={() => fileInputRef.current && fileInputRef.current.click()}
-                        disabled={uploading}
-                        className="text-[11px] transition flex items-center gap-1 disabled:opacity-40"
-                        style={{color:'var(--text-muted)'}}
-                        title="이미지/파일 첨부 (최대 15MB)">
-                  📎 첨부
-                </button>
-                <span className="text-[10px] tracking-wide" style={{color:'var(--text-faint)'}}>
-                  @로 멤버 멘션
-                </span>
-              </div>
-              <button onClick={submit} disabled={(!draft.trim() && pendingFiles.length === 0) || uploading}
+              <span className="text-[10px] tracking-wide" style={{color:'var(--text-faint)'}}>
+                @로 멤버 멘션
+              </span>
+              <button onClick={submit} disabled={!draft.trim()}
                       className="text-xs px-3 py-1 rounded-sm transition disabled:opacity-30 disabled:cursor-not-allowed"
                       style={{background:'var(--ink)', color:'white'}}>
-                {uploading ? '업로드 중…' : '등록'}
+                등록
               </button>
             </div>
           </div>
