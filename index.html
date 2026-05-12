@@ -602,6 +602,14 @@
         if (!t) return;
         await updateTask(taskId, { comments: (t.comments || []).filter(c => c.id !== commentId) });
       };
+      const editComment = async (taskId, commentId, body) => {
+        const t = tasks.find(x => x.id === taskId);
+        if (!t) return;
+        const next = (t.comments || []).map(c =>
+          c.id === commentId ? { ...c, body, editedAt: new Date().toISOString() } : c
+        );
+        await updateTask(taskId, { comments: next });
+      };
 
       // Posts CRUD (board)
       const addPost = async (title, body) => {
@@ -642,6 +650,14 @@
         const p = posts.find(x => x.id === postId);
         if (!p) return;
         await updatePost(postId, { comments: (p.comments || []).filter(c => c.id !== commentId) });
+      };
+      const editPostComment = async (postId, commentId, body) => {
+        const p = posts.find(x => x.id === postId);
+        if (!p) return;
+        const next = (p.comments || []).map(c =>
+          c.id === commentId ? { ...c, body, editedAt: new Date().toISOString() } : c
+        );
+        await updatePost(postId, { comments: next });
       };
 
       // Calendar events CRUD
@@ -818,10 +834,10 @@
           <main className="max-w-6xl mx-auto px-8 py-12">
             <div className="mb-8 pb-5 flex items-end justify-between gap-4 flex-wrap" style={{borderBottom:'1px solid var(--border)'}}>
               <h2 className="font-display text-xl tracking-tight" style={{color:'var(--text-faint)'}}>
-                {view === 'board' ? '팀 게시판' : view === 'calendar' ? '팀 캘린더' : '담당자별 아젠다'}
+                {view === 'board' ? '팀 게시판' : view === 'calendar' ? '팀 캘린더' : view === 'brands' ? '브랜드 포트폴리오' : '담당자별 아젠다'}
               </h2>
               <div className="flex items-center gap-2">
-                {view !== 'board' && view !== 'calendar' && (
+                {view !== 'board' && view !== 'calendar' && view !== 'brands' && (
                   <button
                     onClick={() => setShowAdd(true)}
                     className="text-xs px-4 py-1.5 rounded-full transition tracking-wide flex items-center gap-1.5"
@@ -843,6 +859,12 @@
                 onDelete={deletePost}
                 onAddComment={addPostComment}
                 onDeleteComment={deletePostComment}
+              />
+            ) : view === 'brands' ? (
+              <BrandsView
+                tasks={visibleTasks}
+                stats={stats}
+                onOpenBrand={(id) => setOpenBrand(id)}
               />
             ) : view === 'calendar' ? (
               <CalendarView
@@ -941,6 +963,7 @@
               <div className="flex items-center">
                 <TabBtn active={view === 'board'}    onClick={() => setView('board')}    label="게시판" sub="Board" />
                 <TabBtn active={view === 'members'}  onClick={() => setView('members')}  label="담당자" sub="People" />
+                <TabBtn active={view === 'brands'}   onClick={() => setView('brands')}   label="브랜드" sub="Brands" />
                 <TabBtn active={view === 'calendar'} onClick={() => setView('calendar')} label="캘린더" sub="Calendar" last />
               </div>
               <span className="hidden md:inline-block w-px h-5" style={{background: dividerCol}}></span>
@@ -1542,7 +1565,7 @@
           {expanded && (
             <div style={{borderTop:'1px solid var(--border)'}}>
               <CommentThread task={post} currentUser={currentUser}
-                             onAddComment={onAddComment} onDeleteComment={onDeleteComment} />
+                             onAddComment={onAddComment} onDeleteComment={onDeleteComment} onEditComment={editPostComment} />
             </div>
           )}
         </li>
@@ -1595,6 +1618,67 @@
 
     const KO_MONTHS = ['1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월'];
     const KO_WEEKDAYS = ['일','월','화','수','목','금','토'];
+
+    // 대한민국 공휴일 (대체공휴일 포함, 2025-2027)
+    const KR_HOLIDAYS = {
+      // 2025
+      '2025-01-01': '신정',
+      '2025-01-28': '설날 연휴',
+      '2025-01-29': '설날',
+      '2025-01-30': '설날 연휴',
+      '2025-03-01': '삼일절',
+      '2025-03-03': '대체공휴일',
+      '2025-05-05': '어린이날·부처님오신날',
+      '2025-05-06': '대체공휴일',
+      '2025-06-06': '현충일',
+      '2025-08-15': '광복절',
+      '2025-10-03': '개천절',
+      '2025-10-06': '추석 연휴',
+      '2025-10-07': '추석',
+      '2025-10-08': '추석 연휴',
+      '2025-10-09': '한글날',
+      '2025-12-25': '성탄절',
+      // 2026
+      '2026-01-01': '신정',
+      '2026-02-16': '설날 연휴',
+      '2026-02-17': '설날',
+      '2026-02-18': '설날 연휴',
+      '2026-03-01': '삼일절',
+      '2026-03-02': '대체공휴일',
+      '2026-05-05': '어린이날',
+      '2026-05-24': '부처님오신날',
+      '2026-05-25': '대체공휴일',
+      '2026-06-06': '현충일',
+      '2026-08-15': '광복절',
+      '2026-08-17': '대체공휴일',
+      '2026-09-24': '추석 연휴',
+      '2026-09-25': '추석',
+      '2026-09-26': '추석 연휴',
+      '2026-10-03': '개천절',
+      '2026-10-05': '대체공휴일',
+      '2026-10-09': '한글날',
+      '2026-12-25': '성탄절',
+      // 2027
+      '2027-01-01': '신정',
+      '2027-02-06': '설날 연휴',
+      '2027-02-07': '설날',
+      '2027-02-08': '설날 연휴',
+      '2027-03-01': '삼일절',
+      '2027-05-05': '어린이날',
+      '2027-05-13': '부처님오신날',
+      '2027-06-06': '현충일',
+      '2027-06-07': '대체공휴일',
+      '2027-08-15': '광복절',
+      '2027-08-16': '대체공휴일',
+      '2027-09-14': '추석 연휴',
+      '2027-09-15': '추석',
+      '2027-09-16': '추석 연휴',
+      '2027-10-03': '개천절',
+      '2027-10-04': '대체공휴일',
+      '2027-10-09': '한글날',
+      '2027-10-11': '대체공휴일',
+      '2027-12-25': '성탄절',
+    };
 
     function CalendarView({ events, currentUser, emojis, onAdd, onUpdate, onDelete }) {
       const [cursor, setCursor] = useState(() => {
@@ -1803,6 +1887,8 @@
                     const isSelected = isSameDay(d, selectedDate);
                     const isWeekend = d.getDay() === 0 || d.getDay() === 6;
                     const isSunday = d.getDay() === 0;
+                    const holiday = KR_HOLIDAYS[ymd(d)];
+                    const isHolidayRed = !!holiday; // 모든 공휴일은 빨간색
                     const isLastCol = col === 6;
                     const totalForDay = (eventsByDate[ymd(d)] || []).length;
                     const spansAtThisDay = wk.spans.filter(s => s.startCol <= col && s.endCol >= col).length;
@@ -1825,7 +1911,7 @@
                            }}
                            onMouseEnter={(e) => { if (!isSelected) e.currentTarget.style.background = 'var(--surface-2)'; }}
                            onMouseLeave={(e) => { if (!isSelected) e.currentTarget.style.background = inMonth ? 'transparent' : 'var(--surface-2)'; }}>
-                        <div className="flex items-center justify-between" style={{height:'18px'}}>
+                        <div className="flex items-center justify-between gap-1" style={{height:'18px'}}>
                           {isToday ? (
                             <span className="inline-flex items-center justify-center rounded-full tabular-nums"
                                   style={{width:'22px', height:'22px', background:'var(--ink)', color:'white', fontSize:'12px', fontWeight:600}}>
@@ -1835,10 +1921,25 @@
                             <span className="tabular-nums" style={{
                               fontSize: '13px',
                               fontWeight: isSelected ? 600 : 500,
-                              color: !inMonth ? 'var(--text-faint)' : isSunday ? '#dc2626' : isWeekend ? '#2563eb' : 'var(--ink)',
+                              color: !inMonth ? 'var(--text-faint)'
+                                : (isSunday || isHolidayRed) ? '#dc2626'
+                                : isWeekend ? '#2563eb'
+                                : 'var(--ink)',
                               marginLeft: '2px',
                             }}>
                               {d.getDate()}
+                            </span>
+                          )}
+                          {holiday && inMonth && (
+                            <span className="truncate" style={{
+                              fontSize: '9px',
+                              color: '#dc2626',
+                              fontWeight: 500,
+                              letterSpacing: '-0.01em',
+                              marginRight: '2px',
+                              maxWidth: '64px',
+                            }} title={holiday}>
+                              {holiday}
                             </span>
                           )}
                         </div>
@@ -2197,6 +2298,104 @@
       );
     }
 
+    function BrandsView({ tasks, stats, onOpenBrand }) {
+      return (
+        <div className="space-y-6">
+          {PARTS.map(part => {
+            const t = PART_THEME[part.id];
+            const podBrands = BRANDS.filter(b => b.part === part.id);
+            const podActive = podBrands.reduce((sum, b) => sum + (stats.byBrandActive[b.id] || 0), 0);
+            const memberLine = part.members.map(memberById).filter(Boolean).map(m => m.name + ' ' + m.title).join(' · ');
+            return (
+              <section key={part.id}>
+                <div className="rounded-md overflow-hidden relative mb-3"
+                     style={{
+                       background: 'linear-gradient(135deg, ' + t.from + ' 0%, ' + t.to + ' 100%)',
+                       color: 'white',
+                       boxShadow: '0 1px 2px rgba(30,39,70,0.05), 0 8px 18px -10px rgba(30,39,70,0.18)'
+                     }}>
+                  <div className="hero-overlay"></div>
+                  <div className="relative px-5 py-4 flex items-center justify-between gap-4">
+                    <div className="flex items-baseline gap-4 min-w-0">
+                      <span className="font-display tracking-tight" style={{fontSize:'40px', lineHeight:1, fontWeight:300}}>{t.numeral}</span>
+                      <div className="min-w-0">
+                        <div className="text-xs font-eyebrow uppercase mb-1" style={{color:'rgba(255,255,255,0.6)', letterSpacing:'0.18em'}}>
+                          Pod {t.numeral}
+                        </div>
+                        <div className="text-sm" style={{color:'rgba(255,255,255,0.92)', fontWeight:500}}>
+                          {memberLine}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="text-right flex-shrink-0">
+                      <div className="font-display tabular-nums" style={{fontSize:'24px', lineHeight:1, fontWeight:300}}>{podActive}</div>
+                      <div className="text-[10px] font-eyebrow uppercase mt-1" style={{color:'rgba(255,255,255,0.55)'}}>To-Do</div>
+                    </div>
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5">
+                  {podBrands.map(b => (
+                    <BrandCard key={b.id} brand={b} stats={stats}
+                               accent={t.from}
+                               onClick={() => onOpenBrand(b.id)} />
+                  ))}
+                </div>
+              </section>
+            );
+          })}
+        </div>
+      );
+    }
+
+    function BrandCard({ brand, stats, accent, onClick }) {
+      const active = stats.byBrandActive[brand.id] || 0;
+      const total = stats.byBrand[brand.id] || 0;
+      const isPriority = !!brand.priority;
+      const name = brand.name.split('/')[0];
+      return (
+        <button onClick={onClick}
+                className="rounded-md text-left transition relative overflow-hidden"
+                style={{
+                  background: 'var(--surface)',
+                  border: '1px solid ' + (isPriority ? accent : 'var(--border)'),
+                  borderLeftWidth: '3px',
+                  borderLeftColor: accent,
+                  padding: '14px 16px',
+                  minHeight: '76px',
+                }}
+                onMouseEnter={(e)=>{e.currentTarget.style.borderColor=accent;e.currentTarget.style.borderLeftColor=accent;e.currentTarget.style.transform='translateY(-1px)';}}
+                onMouseLeave={(e)=>{e.currentTarget.style.borderColor=isPriority?accent:'var(--border)';e.currentTarget.style.borderLeftColor=accent;e.currentTarget.style.transform='translateY(0)';}}
+                >
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-1.5 mb-1">
+                {isPriority && (
+                  <span className="text-[9px] tracking-[0.18em] uppercase font-eyebrow px-1.5 py-0.5 rounded-sm"
+                        style={{background: accent, color:'white', fontWeight:600}}>
+                    Priority
+                  </span>
+                )}
+              </div>
+              <div className="text-sm" style={{color:'var(--ink)', fontWeight:600, lineHeight:1.3}}>
+                {name}
+              </div>
+              <div className="text-[10px] mt-1" style={{color:'var(--text-faint)'}}>
+                전체 {total}건
+              </div>
+            </div>
+            <div className="text-right flex-shrink-0">
+              <div className="font-display tabular-nums" style={{fontSize:'22px', lineHeight:1, fontWeight:300, color: active > 0 ? accent : 'var(--text-faint)'}}>
+                {active}
+              </div>
+              <div className="text-[9px] tracking-[0.2em] uppercase font-eyebrow mt-1" style={{color:'var(--text-faint)'}}>
+                to-do
+              </div>
+            </div>
+          </div>
+        </button>
+      );
+    }
+
     function MembersView({ tasks, stats, onOpenMember }) {
       const groups = [
         { id: 'head', label: 'MANAGER', sub: '부서장 · 팀장', theme: HEAD_THEME, members: MEMBERS.filter(m => m.group === 'head') },
@@ -2495,7 +2694,7 @@
           {replying && (
             <div style={{borderTop:'1px solid var(--border)'}}>
               <CommentThread task={item.task} currentUser={currentUser}
-                             onAddComment={onAddComment} onDeleteComment={onDeleteComment} />
+                             onAddComment={onAddComment} onDeleteComment={onDeleteComment} onEditComment={editComment} />
             </div>
           )}
         </li>
@@ -2525,10 +2724,17 @@
       });
       mentionedItems.sort((a,b) => (b.when || '').localeCompare(a.when || ''));
 
+      const PRIORITY_RANK = { high: 0, normal: 1, low: 2 };
       const sorted = (list) => [...list].sort((a, b) => {
+        // 1) priority high -> normal -> low
+        const pa = PRIORITY_RANK[a.priority] ?? 1;
+        const pb = PRIORITY_RANK[b.priority] ?? 1;
+        if (pa !== pb) return pa - pb;
+        // 2) earlier due date first (no dueDate goes last)
         if (a.dueDate && b.dueDate) return a.dueDate.localeCompare(b.dueDate);
         if (a.dueDate) return -1;
         if (b.dueDate) return 1;
+        // 3) newer createdAt first
         return b.createdAt.localeCompare(a.createdAt);
       });
       const list = tab === 'done' ? sorted(doneTasks) : sorted(activeTasks);
@@ -2825,7 +3031,70 @@
       );
     }
 
-    function CommentThread({ task, currentUser, onAddComment, onDeleteComment }) {
+    function CommentItem({ comment, task, currentUser, onDelete, onEdit }) {
+      const author = memberById(comment.authorId);
+      const isMine = comment.authorId === currentUser;
+      const canEdit = isMine; // 작성자만 수정 가능
+      const canDelete = isMine || currentUser === 'lee_dh';
+      const d = new Date(comment.createdAt);
+      const when = (d.getMonth()+1) + '/' + d.getDate() + ' ' + String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0');
+      const [editing, setEditing] = useState(false);
+      const [draft, setDraft] = useState(comment.body || '');
+      const save = () => {
+        if (!draft.trim()) return;
+        if (draft.trim() === comment.body) { setEditing(false); return; }
+        if (onEdit) onEdit(task.id, comment.id, draft.trim());
+        setEditing(false);
+      };
+      const cancel = () => { setDraft(comment.body || ''); setEditing(false); };
+      return (
+        <li className="text-xs group">
+          <div className="flex items-baseline gap-2 mb-0.5">
+            <span className="font-medium" style={{color:'var(--ink)', fontSize:'12px'}}>
+              {author?.name || '—'} <span style={{color:'var(--text-muted)', fontWeight:400}}>{author?.title || ''}</span>
+            </span>
+            <span style={{color:'var(--text-faint)', fontSize:'10px'}}>{when}{comment.editedAt ? ' · 수정됨' : ''}</span>
+            {!editing && (canEdit || canDelete) && (
+              <span className="ml-auto flex items-center gap-2 opacity-0 group-hover:opacity-100 transition">
+                {canEdit && onEdit && (
+                  <button onClick={() => setEditing(true)}
+                          style={{color:'var(--text-faint)', fontSize:'10px'}}>
+                    수정
+                  </button>
+                )}
+                {canDelete && (
+                  <button onClick={() => onDelete(task.id, comment.id)}
+                          style={{color:'var(--text-faint)', fontSize:'10px'}}>
+                    삭제
+                  </button>
+                )}
+              </span>
+            )}
+          </div>
+          {editing ? (
+            <div>
+              <MentionInput value={draft} onChange={setDraft}
+                            rows={2}
+                            className="w-full bg-transparent outline-none leading-relaxed"
+                            style={{color:'var(--text)', fontSize:'12px', borderBottom:'1px solid var(--border-strong)', paddingBottom:'4px'}} />
+              <div className="flex justify-end gap-2 mt-1.5">
+                <button onClick={cancel} className="text-[10px] px-2 py-0.5"
+                        style={{color:'var(--text-muted)'}}>취소</button>
+                <button onClick={save} disabled={!draft.trim()}
+                        className="text-[10px] px-2 py-0.5 rounded-sm disabled:opacity-30"
+                        style={{background:'var(--ink)', color:'white'}}>저장</button>
+              </div>
+            </div>
+          ) : (
+            <div className="text-xs leading-relaxed" style={{color:'var(--text)'}}>
+              <RichText text={comment.body} />
+            </div>
+          )}
+        </li>
+      );
+    }
+
+    function CommentThread({ task, currentUser, onAddComment, onDeleteComment, onEditComment }) {
       const [draft, setDraft] = useState('');
       const submit = () => {
         if (!draft.trim()) return;
@@ -2840,32 +3109,10 @@
         <div className="mt-2 ml-7 mr-2 pb-3">
           {comments.length > 0 && (
             <ul className="space-y-2.5 mb-3">
-              {comments.map(c => {
-                const author = memberById(c.authorId);
-                const isMine = c.authorId === currentUser;
-                const d = new Date(c.createdAt);
-                const when = `${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
-                return (
-                  <li key={c.id} className="text-xs">
-                    <div className="flex items-baseline gap-2 mb-0.5">
-                      <span className="font-medium" style={{color:'var(--ink)', fontSize:'12px'}}>
-                        {author?.name || '—'} <span style={{color:'var(--text-muted)', fontWeight:400}}>{author?.title || ''}</span>
-                      </span>
-                      <span style={{color:'var(--text-faint)', fontSize:'10px'}}>{when}</span>
-                      {(isMine || currentUser === 'lee_dh') && (
-                        <button onClick={() => onDeleteComment(task.id, c.id)}
-                                className="ml-auto opacity-0 hover:opacity-100"
-                                style={{color:'var(--text-faint)', fontSize:'10px'}}>
-                          삭제
-                        </button>
-                      )}
-                    </div>
-                    <div className="text-xs leading-relaxed" style={{color:'var(--text)'}}>
-                      <RichText text={c.body} />
-                    </div>
-                  </li>
-                );
-              })}
+              {comments.map(c => (
+                <CommentItem key={c.id} comment={c} task={task} currentUser={currentUser}
+                             onDelete={onDeleteComment} onEdit={onEditComment} />
+              ))}
             </ul>
           )}
           <div className="rounded-sm" style={{border:'1px solid var(--border)', background:'var(--surface)'}}>
@@ -3058,7 +3305,7 @@
           {expanded && onAddComment && (
             <div style={{borderTop: '1px solid var(--border)'}}>
               <CommentThread task={task} currentUser={currentUser}
-                             onAddComment={onAddComment} onDeleteComment={onDeleteComment} />
+                             onAddComment={onAddComment} onDeleteComment={onDeleteComment} onEditComment={editComment} />
             </div>
           )}
         </li>
