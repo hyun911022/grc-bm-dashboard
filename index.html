@@ -859,6 +859,7 @@
                 onDelete={deletePost}
                 onAddComment={addPostComment}
                 onDeleteComment={deletePostComment}
+                onEditComment={editPostComment}
               />
             ) : view === 'brands' ? (
               <BrandsView
@@ -905,6 +906,7 @@
               memberId={openMember}
               tasks={visibleTasks}
               allTasks={visibleTasks}
+              onEditComment={editComment}
               onClose={() => setOpenMember(null)}
               onUpdate={updateTask} onDelete={removeOrDelete}
               onChangeStatus={(id, next) => updateTask(id, { status: next })} onEdit={(t) => setEditingTask(t)}
@@ -1280,7 +1282,7 @@
       return (d.getMonth() + 1) + '/' + d.getDate();
     }
 
-    function BoardView({ posts, currentUser, emojis, onAdd, onUpdate, onDelete, onAddComment, onDeleteComment }) {
+    function BoardView({ posts, currentUser, emojis, onAdd, onUpdate, onDelete, onAddComment, onDeleteComment, onEditComment }) {
       const [title, setTitle] = useState('');
       const [body, setBody] = useState('');
       const [filter, setFilter] = useState('all'); // 'all' | 'mentions'
@@ -1414,7 +1416,8 @@
                   onUpdate={onUpdate}
                   onDelete={onDelete}
                   onAddComment={onAddComment}
-                  onDeleteComment={onDeleteComment} />
+                  onDeleteComment={onDeleteComment}
+                  onEditComment={onEditComment} />
               ))}
             </ul>
           )}
@@ -1422,7 +1425,7 @@
       );
     }
 
-    function PostCard({ post, currentUser, emojis, initiallyExpanded, onUpdate, onDelete, onAddComment, onDeleteComment }) {
+    function PostCard({ post, currentUser, emojis, initiallyExpanded, onUpdate, onDelete, onAddComment, onDeleteComment, onEditComment }) {
       const [expanded, setExpanded] = useState(!!initiallyExpanded);
       const [editing, setEditing] = useState(false);
       const [draftTitle, setDraftTitle] = useState(post.title || '');
@@ -1565,7 +1568,7 @@
           {expanded && (
             <div style={{borderTop:'1px solid var(--border)'}}>
               <CommentThread task={post} currentUser={currentUser}
-                             onAddComment={onAddComment} onDeleteComment={onDeleteComment} onEditComment={editPostComment} />
+                             onAddComment={onAddComment} onDeleteComment={onDeleteComment} onEditComment={onEditComment} />
             </div>
           )}
         </li>
@@ -2605,8 +2608,7 @@
                     onDelete={() => { if (confirm('이 작업을 삭제하시겠습니까?')) onDelete(t.id); }}
                     currentUser={currentUser}
                     onAddComment={onAddComment}
-                    onDeleteComment={onDeleteComment}
-                  />
+                    onDeleteComment={onDeleteComment} onEditComment={onEditComment} />
                 ))}
               </ul>
             )}
@@ -2635,7 +2637,7 @@
     /* ============================================================
        MEMBER MODAL
        ============================================================ */
-    function MentionItem({ item, currentUser, onAddComment, onDeleteComment, onOpenBrand }) {
+    function MentionItem({ item, currentUser, onAddComment, onDeleteComment, onEditComment, onOpenBrand }) {
       const [replying, setReplying] = useState(false);
       const b = brandById(item.task.brandId);
       const author = item.kind === 'comment' ? memberById(item.comment.authorId) : memberById(item.task.createdBy);
@@ -2694,14 +2696,14 @@
           {replying && (
             <div style={{borderTop:'1px solid var(--border)'}}>
               <CommentThread task={item.task} currentUser={currentUser}
-                             onAddComment={onAddComment} onDeleteComment={onDeleteComment} onEditComment={editComment} />
+                             onAddComment={onAddComment} onDeleteComment={onDeleteComment} onEditComment={onEditComment} />
             </div>
           )}
         </li>
       );
     }
 
-    function MemberModal({ memberId, tasks, allTasks, onClose, onChangeStatus, onDelete, onEdit, currentUser, onAddComment, onDeleteComment, onOpenBrand, onAssign }) {
+    function MemberModal({ memberId, tasks, allTasks, onClose, onChangeStatus, onDelete, onEdit, currentUser, onAddComment, onDeleteComment, onEditComment, onOpenBrand, onAssign }) {
       const m = memberById(memberId);
       const [tab, setTab] = useState('active');
       // Tasks assigned to this member
@@ -2784,7 +2786,7 @@
                     <MentionItem key={i} item={item}
                       currentUser={currentUser}
                       onAddComment={onAddComment} onDeleteComment={onDeleteComment}
-                      onOpenBrand={onOpenBrand} />
+                      onOpenBrand={onOpenBrand} onEditComment={onEditComment} />
                   ))}
                 </ul>
               )
@@ -2826,8 +2828,7 @@
                         onDelete={() => { if (confirm('이 작업을 삭제하시겠습니까?')) onDelete(t.id); }}
                         currentUser={currentUser}
                         onAddComment={onAddComment}
-                        onDeleteComment={onDeleteComment}
-                      />
+                        onDeleteComment={onDeleteComment} onEditComment={onEditComment} />
                     ))}
                   </ul>
                 )}
@@ -3195,7 +3196,7 @@
       );
     }
 
-    function TaskRow({ task, showBrand, onChangeStatus, onEdit, onDelete, currentUser, onAddComment, onDeleteComment }) {
+    function TaskRow({ task, showBrand, onChangeStatus, onEdit, onDelete, currentUser, onAddComment, onDeleteComment, onEditComment }) {
       const s = statusOf(task.status);
       const p = priorityOf(task.priority);
       const assignees = (task.assigneeIds || (task.assigneeId ? [task.assigneeId] : [])).map(memberById).filter(Boolean);
@@ -3305,7 +3306,7 @@
           {expanded && onAddComment && (
             <div style={{borderTop: '1px solid var(--border)'}}>
               <CommentThread task={task} currentUser={currentUser}
-                             onAddComment={onAddComment} onDeleteComment={onDeleteComment} onEditComment={editComment} />
+                             onAddComment={onAddComment} onDeleteComment={onDeleteComment} onEditComment={onEditComment} />
             </div>
           )}
         </li>
